@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "Home Helper",
+    "slug": "personal-home-helper",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow Home Helper to photograph meals and supermarket receipts so AI can read them."
+        }
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "Allow Home Helper to count your steps."
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Allow Home Helper to read your calendar for your morning briefing, reviews and trip checklists."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow Home Helper to use your location for the local forecast."
+        }
+      ]
+    ],
+    "scheme": "homehelper",
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
