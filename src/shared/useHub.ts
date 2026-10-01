@@ -31,6 +31,8 @@ function useNow(): Date {
   return now;
 }
 
+export type HubData = ReturnType<typeof useHub>;
+
 /** Today's state of every module, plus the cross-module tips. */
 export function useHub() {
   const now = useNow();
@@ -100,14 +102,19 @@ export function useHub() {
     return {
       now,
       tips: connections(snapshot),
-      food: { waterMl: day.waterMl, waterGoal, kcal: Math.round(day.nutrients.kcal), kcalGoal: targets?.kcal ?? null },
-      activity: { steps, stepGoal, level: activity.state.coach.level },
-      kitchen: { expiring, total: kitchen.state.items.length },
+      food: { waterMl: day.waterMl, waterGoal, kcal: Math.round(day.nutrients.kcal), kcalGoal: targets?.kcal ?? null, nutrients: day.nutrients, targets },
+      activity: { steps, stepGoal, level: activity.state.coach.level, workoutInMinutes: snapshot.workoutInMinutes },
+      kitchen: {
+        expiring,
+        total: kitchen.state.items.length,
+        low: kitchen.state.items.filter((i) => i.level === 'low' || i.level === 'empty').map((i) => `${i.name} (${i.level})`),
+        recipe: snapshot.recipe,
+      },
       shopping: { count: shoppingOpen.length, estimate: shoppingEstimate, currency: shopping.state.settings.currency },
       money: { spent: month.total, budget: money.state.settings.monthlyBudget, currency: money.state.settings.currency },
-      chores: { minutes: choresPlan.minutes, count: choresPlan.tasks.length, laundry: chores.state.laundry },
+      chores: { minutes: choresPlan.minutes, count: choresPlan.tasks.length, capacity, tasks: choresPlan.tasks, laundry: chores.state.laundry },
       planner: briefing,
-      weather: { forecast: f, outfit },
+      weather: { forecast: f, outfit, rain, indoor },
     };
   }, [now, today, food.state, activity.state, kitchen.state, shopping.state, money.state, chores.state, planner.briefingInput, weather.state]);
 }

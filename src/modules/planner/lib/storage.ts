@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 import type { AppState } from './types';
 
 const STATE_KEY = 'planner-life-admin:v1';
-const API_KEY = 'anthropic-api-key';
+const API_KEY = 'anthropic_api_key';
 
 export const DEFAULT_STATE: AppState = {
   manualEvents: [],

@@ -70,6 +70,19 @@ export default function Hub() {
 
       <Pressable
         accessibilityRole="button"
+        onPress={() => router.push('/assistant')}
+        style={({ pressed }) => [styles.card, { flexDirection: 'row', alignItems: 'center', gap: 10, opacity: pressed ? 0.85 : 1 }]}
+      >
+        <Text style={{ fontSize: 26 }}>🧠</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.label}>Ask Home Helper</Text>
+          <Muted>“Plan my day” · “What can I cook tonight?” · “I finished the milk”</Muted>
+        </View>
+        <Text style={{ fontSize: 20, color: colors.primary }}>›</Text>
+      </Pressable>
+
+      <Pressable
+        accessibilityRole="button"
         onPress={() => router.push('/quick')}
         style={({ pressed }) => [styles.button, { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 }]}
       >
