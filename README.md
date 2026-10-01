@@ -85,7 +85,7 @@ Each module keeps its own storage key, so data is organised exactly as in the se
 ```bash
 npm install
 npx expo start        # scan the QR code with Expo Go, or press w for web
-npm test              # 145 tests across all modules and the assistant
+npm test              # 149 tests across all modules and the assistant
 npm run typecheck
 ```
 
