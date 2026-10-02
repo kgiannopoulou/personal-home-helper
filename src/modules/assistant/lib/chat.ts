@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta/messages';
 import { newId, toDateKey } from '../../../shared/dates';
+import type { Fact } from './memory';
 
 export interface Bubble {
   id: string;
@@ -40,6 +41,22 @@ export async function saveChat(chat: Chat): Promise<void> {
   await AsyncStorage.setItem(KEY, JSON.stringify(chat));
 }
 
+const MEMORY_KEY = 'assistant:memory:v1';
+
+/** Remembered facts outlive the daily chat. */
+export async function loadMemory(): Promise<Fact[]> {
+  try {
+    const raw = await AsyncStorage.getItem(MEMORY_KEY);
+    return raw ? (JSON.parse(raw) as Fact[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveMemory(facts: Fact[]): Promise<void> {
+  await AsyncStorage.setItem(MEMORY_KEY, JSON.stringify(facts));
+}
+
 export const bubble = (role: Bubble['role'], text: string, extra: Partial<Bubble> = {}): Bubble => ({ id: newId(), role, text, ...extra });
 
 /** Starting points that show off what the assistant can connect. */
@@ -52,4 +69,5 @@ export const SUGGESTIONS = [
   'Plan next week',
   'I finished the milk and the eggs',
   'What should I wear today?',
+  'What do you remember about me?',
 ];

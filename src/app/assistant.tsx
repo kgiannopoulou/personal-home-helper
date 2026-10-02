@@ -3,8 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import { useAssistantActions } from '../modules/assistant/lib/actions';
 import { ask, AssistantError } from '../modules/assistant/lib/assistant';
-import { bubble, loadChat, newChat, saveChat, SUGGESTIONS, type Chat } from '../modules/assistant/lib/chat';
+import { bubble, loadChat, loadMemory, newChat, saveChat, saveMemory, SUGGESTIONS, type Chat } from '../modules/assistant/lib/chat';
 import { todayContext } from '../modules/assistant/lib/context';
+import { memoryBox, memoryText, removeFact, type Fact } from '../modules/assistant/lib/memory';
 import { makeTools, type ActionLog } from '../modules/assistant/lib/tools';
 import { getApiKey, setApiKey } from '../modules/kitchen/lib/storage';
 import { Button, Card, Chip, colors, Field, Muted, styles, Title } from '../shared/ui';
@@ -43,9 +44,16 @@ export default function Assistant() {
   const scroll = useRef<ScrollView>(null);
   const chatRef = useRef<Chat | null>(null);
   chatRef.current = chat;
+  const [facts, setFacts] = useState<Fact[]>([]);
+  const factsRef = useRef<Fact[]>([]);
+  const [showMemory, setShowMemory] = useState(false);
 
   useEffect(() => {
     loadChat().then(setChat);
+    loadMemory().then((f) => {
+      factsRef.current = f;
+      setFacts(f);
+    });
     getApiKey().then((k) => setHasKey(!!k));
     return () => {
       Speech.stop();
@@ -56,6 +64,12 @@ export default function Assistant() {
     chatRef.current = next;
     setChat(next);
     saveChat(next).catch((e) => console.warn('Could not save chat', e));
+  };
+
+  const updateFacts = (next: Fact[]) => {
+    factsRef.current = next;
+    setFacts(next);
+    saveMemory(next).catch((e) => console.warn('Could not save memory', e));
   };
 
   const send = async (question: string) => {
@@ -70,7 +84,9 @@ export default function Assistant() {
     try {
       const key = await getApiKey();
       if (!key) throw new AssistantError('Add your Anthropic API key first.');
-      const { history, reply } = await ask(key, current.history, todayContext(hub), q, makeTools(actions, (a) => done.push(a)));
+      const memory = memoryBox(() => factsRef.current, updateFacts);
+      const tools = makeTools(actions, (a) => done.push(a), memory);
+      const { history, reply } = await ask(key, current.history, todayContext(hub), q, tools, memoryText(factsRef.current));
       update({ ...withQuestion, history, bubbles: [...withQuestion.bubbles, bubble('assistant', reply, { actions: done.map((a) => a.result) })] });
       if (withQuestion.speak && Platform.OS !== 'web') Speech.speak(reply);
     } catch (e) {
@@ -132,6 +148,29 @@ export default function Assistant() {
             ))}
           </View>
         ))}
+        {showMemory && (
+          <Card>
+            <Title>🗂️ What I remember about you</Title>
+            {facts.length === 0 ? (
+              <Muted>Nothing yet. Tell me things like “I’m vegetarian” or “I go to the gym on Tuesdays” and I’ll keep them for next time.</Muted>
+            ) : (
+              facts.map((f) => (
+                <View key={f.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={[styles.text, { flex: 1 }]}>{f.text}</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Forget ${f.text}`}
+                    onPress={() => updateFacts(removeFact(factsRef.current, f.id))}
+                    disabled={busy}
+                    hitSlop={8}
+                  >
+                    <Text style={{ color: colors.muted, fontSize: 16 }}>✕</Text>
+                  </Pressable>
+                </View>
+              ))
+            )}
+          </Card>
+        )}
         {busy && (
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
             <ActivityIndicator color={colors.primary} />
@@ -169,6 +208,9 @@ export default function Assistant() {
             <Muted>🔊 Read replies aloud</Muted>
           </View>
           <View style={{ flexDirection: 'row', gap: 16 }}>
+            <Pressable accessibilityRole="button" onPress={() => setShowMemory((v) => !v)} hitSlop={8}>
+              <Text style={{ color: colors.muted }}>Memory ({facts.length})</Text>
+            </Pressable>
             <Pressable accessibilityRole="button" onPress={() => setHasKey(false)} disabled={busy} hitSlop={8}>
               <Text style={{ color: colors.muted }}>Change key</Text>
             </Pressable>

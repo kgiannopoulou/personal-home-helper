@@ -2,6 +2,7 @@ import { betaZodTool } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
 import { EXPENSE_CATEGORIES } from '../../money/lib/budget';
 import { SECTIONS, type Actions } from './catalog';
+import { FACT_KINDS, type FactKind, type MemoryBox } from './memory';
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe('YYYY-MM-DD');
 const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).describe('HH:MM, 24-hour');
@@ -17,7 +18,7 @@ export interface ActionLog {
  * The assistant's tools, bound to the app's real data. Order and wording stay fixed so the
  * tool list is cached between requests.
  */
-export function makeTools(actions: Actions, log: (entry: ActionLog) => void) {
+export function makeTools(actions: Actions, log: (entry: ActionLog) => void, memory: MemoryBox) {
   const run =
     <I,>(name: string, fn: (input: I) => string) =>
     async (input: I) => {
@@ -123,6 +124,19 @@ export function makeTools(actions: Actions, log: (entry: ActionLog) => void) {
       description: 'Start the laundry timer; the user gets a notification when it should be done.',
       inputSchema: z.object({ type: z.enum(['whites', 'colours', 'darks', 'mixed']), minutes: z.number().int().min(10).max(300).optional() }),
       run: run('start_laundry', (i: { type: 'whites' | 'colours' | 'darks' | 'mixed'; minutes?: number }) => actions.startLaundry(i.type, i.minutes)),
+    }),
+    betaZodTool({
+      name: 'remember',
+      description:
+        'Save a lasting fact about the user so you know it in future chats: a preference or dislike, a routine, a goal, a person in their life, or a health fact that matters for advice (allergy, intolerance, injury). One short fact in third person, e.g. "Doesn’t like mushrooms", "Gym on Tuesday and Thursday evenings". Not for one-off things the app already tracks (meals, expenses, events).',
+      inputSchema: z.object({ fact: z.string().min(3).max(200), kind: z.enum(FACT_KINDS) }),
+      run: run('remember', (i: { fact: string; kind: FactKind }) => memory.remember(i.fact, i.kind)),
+    }),
+    betaZodTool({
+      name: 'forget',
+      description: 'Forget remembered facts that contain these words, when the user asks or a fact is no longer true. To change a fact, forget the old one, then remember the new one.',
+      inputSchema: z.object({ about: z.string().min(2) }),
+      run: run('forget', (i: { about: string }) => memory.forget(i.about)),
     }),
   ];
 }

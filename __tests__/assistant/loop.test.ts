@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { ask, AssistantError, SYSTEM } from '../../src/modules/assistant/lib/assistant';
 import type { Actions } from '../../src/modules/assistant/lib/catalog';
+import { memoryBox } from '../../src/modules/assistant/lib/memory';
 import { makeTools, type ActionLog } from '../../src/modules/assistant/lib/tools';
+
+const noMemory = memoryBox(() => [], () => {});
 
 /** Scripted Messages API replies, one per request. */
 function stubApi(replies: object[], status = 200) {
@@ -42,7 +45,7 @@ describe('assistant loop', () => {
       message([{ type: 'text', text: 'Milk is on your list ✓' }], 'end_turn'),
     ]);
     const log: ActionLog[] = [];
-    const result = await ask('sk-test', [], 'Now: Thursday 15 October 2026, 15:00', 'I finished the milk', makeTools(actions, (e) => log.push(e)));
+    const result = await ask('sk-test', [], 'Now: Thursday 15 October 2026, 15:00', 'I finished the milk', makeTools(actions, (e) => log.push(e), noMemory));
 
     expect(result.reply).toBe('Milk is on your list ✓');
     expect(actions.addToShopping).toHaveBeenCalledWith(['Milk']);
@@ -52,7 +55,7 @@ describe('assistant loop', () => {
     const first = requests[0];
     expect(first.body).toMatchObject({ model: 'claude-opus-5-5', output_config: { effort: 'medium' }, cache_control: { type: 'ephemeral' }, fallbacks: 'default', system: SYSTEM });
     expect(first.headers['anthropic-beta']).toContain('server-side-fallback-2026-07-01');
-    expect(first.body.tools).toHaveLength(13);
+    expect(first.body.tools).toHaveLength(15);
     expect(first.body.messages).toEqual([{ role: 'user', content: '<today>\nNow: Thursday 15 October 2026, 15:00\n</today>\n\nI finished the milk' }]);
 
     // The second request carries the tool result back.
@@ -68,18 +71,18 @@ describe('assistant loop', () => {
       { role: 'user' as const, content: '<today>\nA\n</today>\n\nhi' },
       { role: 'assistant' as const, content: [{ type: 'text' as const, text: 'Hello!' }] },
     ];
-    const result = await ask('sk-test', earlier, 'B', 'What do I need to do?', makeTools(actions, () => {}));
+    const result = await ask('sk-test', earlier, 'B', 'What do I need to do?', makeTools(actions, () => {}, noMemory));
     expect(requests[0].body.messages.slice(0, 2)).toEqual(earlier);
     expect(result.history).toHaveLength(4);
   });
 
   test('a rejected key becomes a friendly message', async () => {
     stubApi([{ type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } }], 401);
-    await expect(ask('bad', [], 'A', 'hi', makeTools(actions, () => {}))).rejects.toThrow(AssistantError);
+    await expect(ask('bad', [], 'A', 'hi', makeTools(actions, () => {}, noMemory))).rejects.toThrow(AssistantError);
   });
 
   test('a refusal is reported, not shown as an empty reply', async () => {
     stubApi([message([], 'refusal')]);
-    await expect(ask('sk-test', [], 'A', 'hi', makeTools(actions, () => {}))).rejects.toThrow("I can't help with that one");
+    await expect(ask('sk-test', [], 'A', 'hi', makeTools(actions, () => {}, noMemory))).rejects.toThrow("I can't help with that one");
   });
 });

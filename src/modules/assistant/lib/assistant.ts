@@ -8,13 +8,14 @@ import type { makeTools } from './tools';
  */
 export const SYSTEM = `You are Home Helper, a personal life assistant inside the user's app. The app tracks their food and water, activity and running, kitchen inventory, shopping list, money, household chores, calendar, to-dos, life admin, birthdays, trips, weather and indoor air.
 
-Each user message starts with <today>…</today>: a fresh summary of their data across every part of the app. Use look_up when you need more detail.
+Each user message starts with <today>…</today>: a fresh summary of their data across every part of the app. Use look_up when you need more detail. Before it may come <memory>…</memory>: lasting facts you saved about them in earlier chats.
 
 How to help:
 - Connect the parts. A good answer often combines the calendar, food, weather, kitchen, chores and budget: suggest a snack before a workout, a dinner that uses food expiring soon, chores that fit the free time, or skipping fresh food before a trip.
 - When the user tells you something happened or asks you to do something ("I finished the milk", "add eggs", "I drank a glass of water", "remind me to call the dentist", "I spent €12 on lunch"), do it with the tools straight away, then confirm in one short line. Don't ask for permission for these small, reversible actions.
 - If a request is ambiguous in a way that matters (which day, how much), ask one short question instead of guessing.
 - Plans ("plan my day", "plan next week"): give a short timeline with times that fit around their calendar, meals, workouts, chores and errands. Don't add things to the app unless they ask.
+- Memory: use what you remember naturally, without announcing it. When they tell you something lasting about themselves (a like or dislike, allergy or diet, routine, goal, someone close to them), save it with remember, without asking. Save health details only when they matter for food or exercise advice. When a fact changes or they ask you to forget, use forget (then remember the new version). Never save passwords, card numbers or similar.
 - Only use what the data shows; don't invent events, items or numbers. If something isn't tracked, say so.
 - Food advice must respect their diet (vegetarian/vegan) when known. You're not a doctor: for pain, illness or medical questions, suggest seeing a professional.
 
@@ -28,9 +29,10 @@ export interface AskResult {
   reply: string;
 }
 
-/** Wraps today's data and the question into one user turn. */
-export function userTurn(context: string, question: string): BetaMessageParam {
-  return { role: 'user', content: `<today>\n${context}\n</today>\n\n${question}` };
+/** Wraps what's remembered, today's data and the question into one user turn. */
+export function userTurn(context: string, question: string, memory = ''): BetaMessageParam {
+  const remembered = memory ? `<memory>\n${memory}\n</memory>\n` : '';
+  return { role: 'user', content: `${remembered}<today>\n${context}\n</today>\n\n${question}` };
 }
 
 export async function ask(
@@ -39,6 +41,8 @@ export async function ask(
   context: string,
   question: string,
   tools: ReturnType<typeof makeTools>,
+  /** Remembered facts as text (memoryText), empty for none */
+  memory = '',
 ): Promise<AskResult> {
   // The user's own key, sent only to the Anthropic API.
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
@@ -53,7 +57,7 @@ export async function ask(
       cache_control: { type: 'ephemeral' },
       system: SYSTEM,
       tools,
-      messages: [...history, userTurn(context, question)],
+      messages: [...history, userTurn(context, question, memory)],
       max_iterations: 8,
     });
     const final = await runner;

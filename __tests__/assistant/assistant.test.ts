@@ -2,6 +2,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { findByName, type Actions } from '../../src/modules/assistant/lib/catalog';
 import { SYSTEM, userTurn } from '../../src/modules/assistant/lib/assistant';
 import { todayContext } from '../../src/modules/assistant/lib/context';
+import { memoryBox } from '../../src/modules/assistant/lib/memory';
 import { makeTools, type ActionLog } from '../../src/modules/assistant/lib/tools';
 import type { HubData } from '../../src/shared/useHub';
 
@@ -21,14 +22,16 @@ const fakeActions = (): Actions => ({
   lookUp: jest.fn(() => 'details'),
 });
 
+const noMemory = memoryBox(() => [], () => {});
+
 // The tools have different input types; tests call them through one loose shape.
 type AnyTool = { name: string; run: (input: any) => Promise<unknown> | unknown; parse: (input: unknown) => any };
 const toolMap = (actions: Actions, log: (e: ActionLog) => void = () => {}) =>
-  Object.fromEntries((makeTools(actions, log) as AnyTool[]).map((t) => [t.name, t])) as Record<string, AnyTool>;
+  Object.fromEntries((makeTools(actions, log, noMemory) as AnyTool[]).map((t) => [t.name, t])) as Record<string, AnyTool>;
 
 describe('tools', () => {
   test('one tool per action, in a fixed order (so the list stays cached)', () => {
-    const names = makeTools(fakeActions(), () => {}).map((t) => t.name);
+    const names = makeTools(fakeActions(), () => {}, noMemory).map((t) => t.name);
     expect(names).toEqual([
       'look_up',
       'add_to_shopping_list',
@@ -43,6 +46,8 @@ describe('tools', () => {
       'complete_chore',
       'add_chore_to_today',
       'start_laundry',
+      'remember',
+      'forget',
     ]);
   });
 
@@ -98,6 +103,13 @@ describe('prompt', () => {
 
   test("each question carries that moment's data", () => {
     expect(userTurn('Now: Thursday', 'Plan my day')).toEqual({ role: 'user', content: '<today>\nNow: Thursday\n</today>\n\nPlan my day' });
+  });
+
+  test('remembered facts come first, when there are any', () => {
+    expect(userTurn('Now: Thursday', 'Dinner?', 'preference: Vegetarian')).toEqual({
+      role: 'user',
+      content: '<memory>\npreference: Vegetarian\n</memory>\n<today>\nNow: Thursday\n</today>\n\nDinner?',
+    });
   });
 
   test('today’s context summarises every part of the app', () => {
