@@ -7,6 +7,7 @@ import { Button, Card, Chip, colors, Muted, Progress, styles, Title } from '../.
 import {
   doneToday,
   formatMinutes,
+  frequencyLabel,
   needsBuying,
   planForTime,
   routineSuggestions,
@@ -19,7 +20,7 @@ import { useStore } from '../../modules/chores/lib/store';
 const QUICK = [5, 10, 15, 30, 45, 60];
 
 export default function Today() {
-  const { state, pinToday } = useStore();
+  const { state, pinToday, updateTask } = useStore();
   const router = useRouter();
   const now = useNow();
   const capacity = state.settings.dailyMinutes[now.getDay()] ?? 30;
@@ -34,6 +35,7 @@ export default function Today() {
     now,
   );
   const lowSupplies = state.supplies.filter(needsBuying);
+  const learned = state.tasks.filter((t) => t.learned && !t.learned.seen);
 
   const [quick, setQuick] = useState<number | null>(null);
   const mission = quick ? planForTime(state.tasks, quick, now) : null;
@@ -56,6 +58,27 @@ export default function Today() {
       </Card>
 
       <LaundryCard />
+
+      {learned.length > 0 && (
+        <Card style={{ backgroundColor: colors.primarySoft }}>
+          <Title>📈 Learned from your habits</Title>
+          {learned.map((t) => {
+            const from = t.learned!.from;
+            return (
+              <View key={t.id} style={{ gap: 6, paddingVertical: 4 }}>
+                <Text style={styles.text}>
+                  <Text style={{ fontWeight: '700' }}>{t.name}</Text>: now {frequencyLabel(t.everyDays).toLowerCase()} instead of{' '}
+                  {frequencyLabel(from).toLowerCase()}, since you {t.everyDays > from ? 'usually leave it longer' : 'usually do it sooner'}.
+                </Text>
+                <View style={styles.row}>
+                  <Chip label="👍 Keep" onPress={() => updateTask(t.id, { learned: { ...t.learned!, seen: true } })} />
+                  <Chip label={`↩︎ Undo (${frequencyLabel(from).toLowerCase()})`} onPress={() => updateTask(t.id, { everyDays: from, learned: undefined, fixedFrequency: true })} />
+                </View>
+              </View>
+            );
+          })}
+        </Card>
+      )}
 
       {suggestions.map((t) => {
         const room = state.rooms.find((r) => r.id === t.roomId);

@@ -69,8 +69,14 @@ export function todayContext(h: HubData): string {
     `Kitchen (${kitchen.total} items): use soon: ${list(kitchen.expiring)} | low or empty: ${list(kitchen.low)}` +
       (kitchen.recipe ? ` | recipe idea: ${kitchen.recipe.name}` : ''),
   );
-  lines.push(`Shopping list: ${shopping.count ? `${shopping.count} items, about ${shopping.currency}${shopping.estimate.toFixed(2)}` : 'empty'}`);
-  lines.push(`Money: ${c}${money.spent.toFixed(2)} spent this month${money.budget ? ` of ${c}${money.budget} budget (${c}${(money.budget - money.spent).toFixed(2)} left)` : ', no budget set'}`);
+  lines.push(
+    `Shopping list: ${shopping.count ? `${shopping.count} items, about ${shopping.currency}${shopping.estimate.toFixed(2)}` : 'empty'}` +
+      (shopping.day ? ` | usual shopping day ${shopping.day.name}, next ${shopping.day.next}` : ''),
+  );
+  lines.push(
+    `Money: ${c}${money.spent.toFixed(2)} spent this month${money.budget ? ` of ${c}${money.budget} budget (${c}${(money.budget - money.spent).toFixed(2)} left)` : ', no budget set'}` +
+      (money.forecast ? ` | forecast: ${money.forecast.text}` : ''),
+  );
 
   lines.push(
     `Chores planned today (${chores.minutes} of ${chores.capacity} free min): ${list(chores.tasks.map((x) => `${x.name} (${x.minutes} min)`))}` +

@@ -14,13 +14,16 @@ import {
 } from '../../modules/money/lib/budget';
 import { useStore } from '../../modules/money/lib/store';
 import type { ExpenseCategory } from '../../modules/money/lib/types';
+import { budgetForecast } from '../../shared/predictions';
 
 export default function Overview() {
   const { state, addExpense } = useStore();
   const { settings } = state;
   const c = settings.currency;
   const summary = useMemo(() => monthSummary(state.expenses, settings), [state.expenses, settings]);
-  const tips = insights(summary, settings, state.rewards);
+  // The forecast has its own line now, so its tip would repeat it.
+  const tips = insights(summary, settings, state.rewards).filter((t) => !t.startsWith('🔮'));
+  const forecast = useMemo(() => budgetForecast(state.expenses, settings), [state.expenses, settings]);
   const history = useMemo(() => monthHistory(state.expenses, 6), [state.expenses]);
   const max = Math.max(settings.monthlyBudget, ...history.map((h) => h.total), 1);
 
@@ -50,6 +53,9 @@ export default function Overview() {
             : `${summary.daysLeft} days to go`}
           {summary.averageMonth !== null ? ` · usual month ${money(summary.averageMonth, c)}` : ''}
         </Muted>
+        {forecast && (
+          <Text style={[styles.text, { fontWeight: '600', color: (forecast.over ?? 0) > 0 ? colors.warn : colors.text }]}>🔮 {forecast.text}</Text>
+        )}
         {settings.weeklyGroceries > 0 && (
           <>
             <View style={{ height: 10 }} />

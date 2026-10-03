@@ -80,7 +80,9 @@ function TaskEditor({ task, onClose }: { task: Task; onClose: () => void }) {
             label="Save"
             disabled={!valid}
             onPress={() => {
-              updateTask(task.id, { name: name.trim(), minutes: m, everyDays, assignee });
+              // Choosing a frequency yourself replaces anything the app learned.
+              const learned = everyDays === task.everyDays ? task.learned : undefined;
+              updateTask(task.id, { name: name.trim(), minutes: m, everyDays, assignee, learned });
               onClose();
             }}
           />

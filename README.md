@@ -59,6 +59,10 @@ Each part was first built as its own app. Here they're modules of one app, with 
 ## How the parts are connected
 
 - **One home screen** reads every module's data for today (`src/shared/useHub.ts`), and **cross-module tips** come from pure, tested rules (`src/shared/connections.ts`).
+- **Predictions from your own data** (`src/shared/predictions.ts`, applied by `PredictionsRunner.tsx`):
+  - 🗓️ **Shopping day**: learned from your trips and grocery spends over the last 12 weeks. The day before, your list fills up with what's low or empty, plus whatever will run out before the following shop (from how fast you've used it up before). A reminder comes at 18:00 the evening before.
+  - 🔮 **Budget forecast**: *"At this pace: €1,180 of €1,000"* on the home screen and in Money. Early in the month it leans on how your past months went from the same day, and trusts the current pace more as the month goes on.
+  - 📈 **Chore frequencies that learn**: when the last 3 times all ran 30% late (you keep skipping it) or 30% early, the chore moves one step (weekly → every 2 weeks, or back). Chores shows what changed, with **Keep** and **Undo**; undoing locks the frequency you set.
 - **No more app-to-app links.** "Send to shopping list" in Kitchen and Chores opens the Shopping module directly. Scanned-receipt totals are logged in **both Shopping and Money**.
 - **Quick actions write straight into the modules.** Water goes into Food. "I finished the milk" marks it empty in Kitchen *and* adds it to Shopping. Free minutes come from Chores.
 - **Notifications don't clash.** Each module tags its notifications with its own prefix and only replaces its own (`src/shared/notify.ts`).
@@ -90,6 +94,8 @@ src/
     chat.ts       # saved chat, saved memory + suggestions
   shared/
     connections.ts  # cross-module rules
+    predictions.ts  # shopping day, budget forecast, chore frequencies
+    PredictionsRunner.tsx  # applies them (list before shopping day, learned chores)
     useHub.ts       # gathers today's state from every module
     Providers.tsx   # all module stores
     notify.ts, ui.tsx, dates.ts, homeCore.ts, HomeButton.tsx
@@ -103,7 +109,7 @@ Each module keeps its own storage key, so data is organised exactly as in the se
 ```bash
 npm install
 npx expo start        # scan the QR code with Expo Go, or press w for web
-npm test              # 186 tests across all modules and the assistant
+npm test              # 199 tests across all modules and the assistant
 npm run typecheck
 ```
 
@@ -117,6 +123,7 @@ On first start the app asks for the permissions its parts need: notifications, m
 - [x] ✨ **Proactive**: daily nudges and a Sunday weekly review
 - [x] 🗓️ **Plans you apply**: week plans and meal plans behind an Apply button
 - [x] 📷 **Photos in the chat**: fridge, bills and meals
+- [x] 🔮 **Predictions**: shopping day, budget forecast, chore frequencies that learn
 - [ ] Hands-free voice (speech recognition in a development build)
 - [ ] Shared household sync between phones
 - [ ] Watch app syncing with this app

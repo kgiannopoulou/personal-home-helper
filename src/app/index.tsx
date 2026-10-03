@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { PlanCard } from '../modules/assistant/components/PlanCard';
 import { useProactive } from '../modules/assistant/lib/useProactive';
+import { usePrepared } from '../shared/PredictionsRunner';
 import { weatherLabel } from '../modules/weather/lib/weather';
 import { time } from '../modules/planner/lib/planner';
 import { useHub } from '../shared/useHub';
@@ -44,6 +45,7 @@ export default function Hub() {
   const router = useRouter();
   const proactive = useProactive();
   const { briefing, review } = proactive;
+  const prepared = usePrepared();
   const { now, tips, food, activity, kitchen, shopping, money, chores, planner, weather } = hub;
   const hour = now.getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
@@ -163,15 +165,23 @@ export default function Hub() {
           title="Shopping"
           href="/shopping"
           line={shopping.count ? `${shopping.count} item${shopping.count > 1 ? 's' : ''} to buy` : 'List is empty'}
-          sub={shopping.estimate ? `≈ ${fmt(shopping.estimate, shopping.currency)}` : undefined}
+          sub={
+            [
+              shopping.estimate ? `≈ ${fmt(shopping.estimate, shopping.currency)}` : '',
+              shopping.day ? `🗓️ ${shopping.day.next === hub.planner.date ? 'Shopping day today' : `Shops on ${shopping.day.name.slice(0, 3)}`}` : '',
+              prepared && prepared.items.length && prepared.date >= hub.planner.date ? `${prepared.items.length} added for it` : '',
+            ]
+              .filter(Boolean)
+              .join(' · ') || undefined
+          }
         />
         <Tile
           emoji="💶"
           title="Money"
           href="/money"
-          highlight={money.budget > 0 && money.spent > money.budget}
+          highlight={(money.budget > 0 && money.spent > money.budget) || (money.forecast?.over ?? 0) > 0}
           line={`${fmt(money.spent, money.currency)} this month`}
-          sub={money.budget ? `of ${fmt(money.budget, money.currency)} budget` : 'No budget set'}
+          sub={money.forecast ? `🔮 ${money.forecast.text}` : money.budget ? `of ${fmt(money.budget, money.currency)} budget` : 'No budget set'}
         />
         <Tile
           emoji="🧹"

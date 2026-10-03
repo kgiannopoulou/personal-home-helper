@@ -19,6 +19,7 @@ import { outfitAdvice, rainWindow } from '../modules/weather/lib/outfit';
 import { useStore as useWeather } from '../modules/weather/lib/store';
 import { hoursOf } from '../modules/weather/lib/weather';
 import { connections, type Snapshot } from './connections';
+import { budgetForecast, shoppingDates, usualShoppingDay } from './predictions';
 import { toDateKey } from './dates';
 
 /** Re-renders every minute so "now"-based tips stay right. */
@@ -66,6 +67,8 @@ export function useHub() {
     const shoppingEstimate = estimateList(shoppingOpen, shopping.state.prices).total;
 
     const month = monthSummary(money.state.expenses, money.state.settings, now);
+    const forecast = budgetForecast(money.state.expenses, money.state.settings, now);
+    const shoppingDay = usualShoppingDay(shoppingDates(shopping.state.trips, money.state.expenses), today);
 
     const capacity = chores.state.settings.dailyMinutes[now.getDay()] ?? 30;
     const pinned = chores.state.pinned.date === today ? chores.state.pinned.taskIds : [];
@@ -110,8 +113,8 @@ export function useHub() {
         low: kitchen.state.items.filter((i) => i.level === 'low' || i.level === 'empty').map((i) => `${i.name} (${i.level})`),
         recipe: snapshot.recipe,
       },
-      shopping: { count: shoppingOpen.length, estimate: shoppingEstimate, currency: shopping.state.settings.currency },
-      money: { spent: month.total, budget: money.state.settings.monthlyBudget, currency: money.state.settings.currency },
+      shopping: { count: shoppingOpen.length, estimate: shoppingEstimate, currency: shopping.state.settings.currency, day: shoppingDay },
+      money: { spent: month.total, budget: money.state.settings.monthlyBudget, currency: money.state.settings.currency, forecast },
       chores: { minutes: choresPlan.minutes, count: choresPlan.tasks.length, capacity, tasks: choresPlan.tasks, laundry: chores.state.laundry },
       planner: briefing,
       weather: { forecast: f, outfit, rain, indoor },

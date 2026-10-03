@@ -20,6 +20,10 @@ export interface Task {
   lastDone?: string;
   /** Household member responsible */
   assignee?: string;
+  /** Set when the app changed everyDays from your habits; `seen` once you've kept it */
+  learned?: { from: number; on: string; seen?: boolean };
+  /** You undid a learned change, so the frequency stays as you set it */
+  fixedFrequency?: boolean;
 }
 
 export interface Completion {
