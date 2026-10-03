@@ -25,6 +25,21 @@ export function weekdayShort(key: string): string {
   return fromDateKey(key).toLocaleDateString(undefined, { weekday: 'short' });
 }
 
-export function newId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const CROCKFORD = '0123456789abcdefghjkmnpqrstvwxyz';
+
+/**
+ * A ULID: 26 characters, the time first so ids sort by when they were made. The phone makes ids
+ * while offline, and the server stores them as they are, so they need to be unique everywhere.
+ * (Records made before sync have shorter ids; the server takes those too.)
+ */
+export function newId(now: number = Date.now()): string {
+  let t = now;
+  let time = '';
+  for (let i = 0; i < 10; i++) {
+    time = CROCKFORD[t % 32] + time;
+    t = Math.floor(t / 32);
+  }
+  let random = '';
+  for (let i = 0; i < 16; i++) random += CROCKFORD[Math.floor(Math.random() * 32)];
+  return time + random;
 }

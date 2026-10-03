@@ -8,6 +8,8 @@ import type { AppState, Feeling, Intensity, Profile, SleepEntry, TrainingSchedul
 interface Store {
   state: AppState;
   ready: boolean;
+  /** Apply changes from the server on top of the current state (src/shared/sync) */
+  applySync: (fn: (s: AppState) => AppState) => void;
   setProfile: (p: Profile) => void;
   setSchedule: (s: TrainingSchedule) => void;
   addWorkout: (w: { type: WorkoutType; minutes: number; intensity: Intensity; notes?: string }) => void;
@@ -113,10 +115,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const applySync = useCallback((fn: (s: AppState) => AppState) => {
+    const next = fn(stateRef.current);
+    stateRef.current = next;
+    setState(next);
+  }, []);
+
   const value = useMemo(
     () => ({
       state,
       ready,
+      applySync,
       setProfile,
       setSchedule,
       addWorkout,
@@ -130,7 +139,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       finishCoachSession,
       setCoachLevel,
     }),
-    [state, ready, setProfile, setSchedule, addWorkout, removeWorkout, addSleep, removeSleep, addWeight, removeWeight, addSteps, setSteps, finishCoachSession, setCoachLevel],
+    [state, ready, applySync, setProfile, setSchedule, addWorkout, removeWorkout, addSleep, removeSleep, addWeight, removeWeight, addSteps, setSteps, finishCoachSession, setCoachLevel],
   );
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

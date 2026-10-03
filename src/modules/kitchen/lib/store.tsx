@@ -22,6 +22,8 @@ export interface StockUpdate {
 interface Store {
   state: AppState;
   ready: boolean;
+  /** Apply changes from the server on top of the current state (src/shared/sync) */
+  applySync: (fn: (s: AppState) => AppState) => void;
   /** Adds a new item, or restocks it if it already exists */
   addItem: (name: string, opts?: NewItemOptions) => void;
   updateItem: (id: string, patch: Partial<InventoryItem>) => void;
@@ -176,9 +178,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const clearToBuy = useCallback(() => setState((s) => ({ ...s, toBuy: [] })), []);
   const setSettings = useCallback((settings: Settings) => setState((s) => ({ ...s, settings })), []);
 
+  const applySync = useCallback((fn: (s: AppState) => AppState) => {
+    const next = fn(stateRef.current);
+    stateRef.current = next;
+    setState(next);
+  }, []);
+
   const value = useMemo(
-    () => ({ state, ready, addItem, updateItem, setLevel, removeItem, runCommand, addReceipt, applyStock, addToBuy, removeToBuy, clearToBuy, setSettings }),
-    [state, ready, addItem, updateItem, setLevel, removeItem, runCommand, addReceipt, applyStock, addToBuy, removeToBuy, clearToBuy, setSettings],
+    () => ({ state, ready, applySync, addItem, updateItem, setLevel, removeItem, runCommand, addReceipt, applyStock, addToBuy, removeToBuy, clearToBuy, setSettings }),
+    [state, ready, applySync, addItem, updateItem, setLevel, removeItem, runCommand, addReceipt, applyStock, addToBuy, removeToBuy, clearToBuy, setSettings],
   );
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

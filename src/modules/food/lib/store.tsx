@@ -6,6 +6,8 @@ import { newId, toDateKey } from '../../../shared/dates';
 interface Store {
   state: AppState;
   ready: boolean;
+  /** Apply changes from the server on top of the current state (src/shared/sync) */
+  applySync: (fn: (s: AppState) => AppState) => void;
   setProfile: (p: Profile) => void;
   setReminders: (r: ReminderSettings) => void;
   addFood: (entry: Omit<FoodEntry, 'id' | 'date' | 'time'>) => void;
@@ -59,9 +61,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const applySync = useCallback((fn: (s: AppState) => AppState) => setState(fn), []);
+
   const value = useMemo(
-    () => ({ state, ready, setProfile, setReminders, addFood, removeFood, addWater, removeWater }),
-    [state, ready, setProfile, setReminders, addFood, removeFood, addWater, removeWater],
+    () => ({ state, ready, applySync, setProfile, setReminders, addFood, removeFood, addWater, removeWater }),
+    [state, ready, applySync, setProfile, setReminders, addFood, removeFood, addWater, removeWater],
   );
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

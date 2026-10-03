@@ -7,6 +7,8 @@ import type { AppState, ListItem, Settings } from './types';
 interface Store {
   state: AppState;
   ready: boolean;
+  /** Apply changes from the server on top of the current state (src/shared/sync) */
+  applySync: (fn: (s: AppState) => AppState) => void;
   addItems: (items: { name: string; quantity?: string }[], source?: ListItem['source']) => number;
   updateItem: (id: string, patch: Partial<ListItem>) => void;
   toggle: (id: string) => void;
@@ -131,9 +133,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const setSettings = useCallback((settings: Settings) => commit({ ...stateRef.current, settings }), []);
 
+  const applySync = useCallback((fn: (s: AppState) => AppState) => commit(fn(stateRef.current)), []);
+
   const value = useMemo(
-    () => ({ state, ready, addItems, updateItem, toggle, removeItem, finishTrip, importData, addTrip, removeTrip, setSettings }),
-    [state, ready, addItems, updateItem, toggle, removeItem, finishTrip, importData, addTrip, removeTrip, setSettings],
+    () => ({ state, ready, applySync, addItems, updateItem, toggle, removeItem, finishTrip, importData, addTrip, removeTrip, setSettings }),
+    [state, ready, applySync, addItems, updateItem, toggle, removeItem, finishTrip, importData, addTrip, removeTrip, setSettings],
   );
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

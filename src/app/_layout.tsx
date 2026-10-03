@@ -11,6 +11,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="assistant" options={{ headerShown: true, title: '🧠 Home Helper', headerStyle: { backgroundColor: colors.bg }, headerShadowVisible: false }} />
+        <Stack.Screen name="settings" />
         <Stack.Screen name="quick" options={{ headerShown: true, title: '⚡ Quick actions', headerStyle: { backgroundColor: colors.bg }, headerShadowVisible: false }} />
       </Stack>
     </Providers>

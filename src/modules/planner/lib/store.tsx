@@ -9,6 +9,8 @@ import type { AdminItem, AppState, CalEvent, Person, Settings, Todo } from './ty
 interface Store {
   state: AppState;
   ready: boolean;
+  /** Apply changes from the server on top of the current state (src/shared/sync) */
+  applySync: (fn: (s: AppState) => AppState) => void;
   /** Phone calendar events + events added in the app */
   events: CalEvent[];
   calendarError: string | null;
@@ -156,10 +158,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const setSettings = useCallback((settings: Settings) => update((s) => ({ ...s, settings })), []);
 
+  const applySync = useCallback((fn: (s: AppState) => AppState) => commit(fn(stateRef.current)), []);
+
   const value = useMemo(
     () => ({
       state,
       ready,
+      applySync,
       events,
       calendarError,
       refreshCalendar,
@@ -179,7 +184,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setSettings,
       setBriefingExtras,
     }),
-    [state, ready, events, calendarError, refreshCalendar, briefingInput, addEvent, removeEvent, addTodo, toggleTodo, removeTodo, addAdmin, completeAdminItem, removeAdmin, addPerson, updatePerson, removePerson, toggleTripCheck, setSettings],
+    [state, ready, applySync, events, calendarError, refreshCalendar, briefingInput, addEvent, removeEvent, addTodo, toggleTodo, removeTodo, addAdmin, completeAdminItem, removeAdmin, addPerson, updatePerson, removePerson, toggleTripCheck, setSettings],
   );
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

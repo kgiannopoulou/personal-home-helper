@@ -40,6 +40,29 @@ Chat with an assistant (Claude) that sees today across every module and can upda
 - **History**: today's snapshot only covers today, so for trends and "why" questions the assistant calls `look_up_history(module, days)`. It gets compact totals, not raw logs: spending per week and category, the change versus the period before, and weeks with vs without a big grocery shop (money); average water and food, weekdays vs weekends (food); steps, sleep and workouts per week, and how days and coached runs go after good vs short nights (activity); chores that keep slipping (chores); shopping trips, usual days and how often each item gets bought (shopping). Windows over 16 weeks are grouped by month.
 - **Memory**: lasting facts about you (tastes, diet and allergies, routines, goals, people close to you) are saved when you mention them and sent with every question, so the assistant keeps knowing you across days. Tap **Memory** under the chat to see everything it remembers and delete any fact. Memory stays on your phone.
 
+## 🔄 Sync with your household
+
+Sign in to your [Home Helper server](https://github.com/kgiannopoulou/home-helper-api) (⚙️ on the home screen → **Account & sync**), and the people you live with share one shopping list, kitchen, money, chores and planner. Add milk on one phone, and it's on the other after the next sync. Food, water, sleep, workouts and weight stay yours: they only sync to your own other phones.
+
+- **Offline first.** The phone's own storage is still the copy you use; sync swaps changes in the background. It runs when the app opens, when you come back to it, and 4 seconds after a change, and tries again a minute later when there's no connection.
+- **Household** (Settings → Household): see the members, invite someone by email (owner), paste an invite link to join, switch household, or start a new one. Once you're signed in, the household's people are the chore members, so fair share and "who did it" are real people.
+- **Last write wins.** Each record carries the time it was last changed; the server keeps the newer one, and an older change never overwrites a newer one. Deleting something sends a tombstone, so it's deleted on the other phones too.
+
+How it works (`src/shared/sync`):
+
+| File | What it does |
+|---|---|
+| `engine.ts` | The rules, as pure functions: **observe** (notice changed, new and deleted records), **pending** (what to send), **acknowledge**, **mergeModule** (last write wins, renames, tombstones), and `syncOnce`, one round trip |
+| `collections.ts` | The 17 mappings between each module's records and the server's rows. Phone-only fields (a kitchen item's price, whether you've seen a learned chore change) never trigger a sync and survive one |
+| `SyncProvider.tsx` | Connects the engine to the module stores (each store has an `applySync`), storage, the app state and the timers |
+| `account.ts`, `api.ts` | The token (secure storage), account and sync state, and the server calls |
+
+**The ledger instead of changing every record.** The modules keep their records exactly as before. A ledger beside them keeps, per record, a hash of what the server sees, `updatedAt`, a `dirty` flag and tombstones. Every change in a store is compared with it as it happens. A changed hash gets a new `updatedAt`; a record that's gone becomes a tombstone. That way, none of the screens and rules reading the stores had to learn about deleted records. Chore completions, which the module trims to the last 1,000, are told apart from real deletions: a completion missing because it's older than all the rest was trimmed, so it's not deleted on the server.
+
+New records get **ULID** ids (`newId()`), made on the phone and stored by the server as they are.
+
+`npm test` covers the mappings (every record survives the trip to the server and back) and the merge rules, including two phones against a small in-memory server. `npx tsx scripts/sync-smoke.ts http://localhost:8000` runs two phones with the same engine against a real server with the demo data.
+
 ## What's inside
 
 Each part was first built as its own app. Here they're modules of one app, with all their features:
@@ -92,12 +115,14 @@ src/
   modules/assistant/components/PlanCard.tsx  # plan card with Apply
     memory.ts     # remembered facts: add, forget, as text
     chat.ts       # saved chat, saved memory + suggestions
+  app/settings/     # Account & sync, Household
   shared/
     connections.ts  # cross-module rules
     predictions.ts  # shopping day, budget forecast, chore frequencies
     PredictionsRunner.tsx  # applies them (list before shopping day, learned chores)
     useHub.ts       # gathers today's state from every module
-    Providers.tsx   # all module stores
+    Providers.tsx   # all module stores, then sync
+    sync/           # household sync: engine, mappings, SyncProvider, account + API
     notify.ts, ui.tsx, dates.ts, homeCore.ts, HomeButton.tsx
 __tests__/<module>/  # every module's tests + the hub's
 ```
@@ -109,7 +134,7 @@ Each module keeps its own storage key, so data is organised exactly as in the se
 ```bash
 npm install
 npx expo start        # scan the QR code with Expo Go, or press w for web
-npm test              # 199 tests across all modules and the assistant
+npm test              # 234 tests across all modules, the assistant and sync
 npm run typecheck
 ```
 
@@ -125,6 +150,6 @@ On first start the app asks for the permissions its parts need: notifications, m
 - [x] 📷 **Photos in the chat**: fridge, bills and meals
 - [x] 🔮 **Predictions**: shopping day, budget forecast, chore frequencies that learn
 - [ ] Hands-free voice (speech recognition in a development build)
-- [ ] Shared household sync between phones
+- [x] 🔄 **Shared household sync** between phones ([home-helper-api](https://github.com/kgiannopoulou/home-helper-api))
 - [ ] Watch app syncing with this app
 - [ ] Route-aware shopping (*"there's a Lidl on your way home from the gym"*)

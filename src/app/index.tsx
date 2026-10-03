@@ -8,6 +8,7 @@ import { weatherLabel } from '../modules/weather/lib/weather';
 import { time } from '../modules/planner/lib/planner';
 import { useHub } from '../shared/useHub';
 import { Card, colors, Muted, styles, Title } from '../shared/ui';
+import { useSync } from '../shared/sync/SyncProvider';
 
 function Tile({ emoji, title, line, sub, href, highlight }: { emoji: string; title: string; line: string; sub?: string; href: Href; highlight?: boolean }) {
   const router = useRouter();
@@ -46,6 +47,7 @@ export default function Hub() {
   const proactive = useProactive();
   const { briefing, review } = proactive;
   const prepared = usePrepared();
+  const sync = useSync();
   const { now, tips, food, activity, kitchen, shopping, money, chores, planner, weather } = hub;
   const hour = now.getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
@@ -55,12 +57,17 @@ export default function Hub() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: 56 }]}>
-      <View>
-        <Text style={{ fontSize: 28, fontWeight: '800', color: colors.text }}>{greeting} 👋</Text>
-        <Muted>
-          {now.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
-          {cur && weather.forecast ? ` · ${cur.emoji} ${Math.round(weather.forecast.current.temp)}°` : ''}
-        </Muted>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 28, fontWeight: '800', color: colors.text }}>{greeting} 👋</Text>
+          <Muted>
+            {now.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
+            {cur && weather.forecast ? ` · ${cur.emoji} ${Math.round(weather.forecast.current.temp)}°` : ''}
+          </Muted>
+        </View>
+        <Pressable accessibilityRole="button" accessibilityLabel="Account and sync" onPress={() => router.push('/settings' as Href)} hitSlop={10}>
+          <Text style={{ fontSize: 24 }}>{sync.account?.household ? (sync.status.error ? '⚠️' : '🔄') : '⚙️'}</Text>
+        </Pressable>
       </View>
 
       {(briefing || proactive.working === 'briefing' || proactive.error) && (

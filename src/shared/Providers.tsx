@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { ProactiveProvider } from '../modules/assistant/lib/useProactive';
 import { PredictionsRunner } from './PredictionsRunner';
+import { SyncProvider } from './sync/SyncProvider';
 import { StoreProvider as ActivityProvider } from '../modules/activity/lib/store';
 import { StoreProvider as ChoresProvider } from '../modules/chores/lib/store';
 import { StoreProvider as FoodProvider } from '../modules/food/lib/store';
@@ -24,10 +25,13 @@ export function Providers({ children }: { children: ReactNode }) {
               <ChoresProvider>
                 <PlannerProvider>
                   <WeatherProvider>
-                    {/* Last, because the assistant reads every module */}
-                    <PredictionsRunner>
-                      <ProactiveProvider>{children}</ProactiveProvider>
-                    </PredictionsRunner>
+                    {/* Sync swaps every module's changes with the household's server */}
+                    <SyncProvider>
+                      {/* Last, because the assistant reads every module */}
+                      <PredictionsRunner>
+                        <ProactiveProvider>{children}</ProactiveProvider>
+                      </PredictionsRunner>
+                    </SyncProvider>
                   </WeatherProvider>
                 </PlannerProvider>
               </ChoresProvider>
