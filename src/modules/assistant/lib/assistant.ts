@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta/messages';
+import type { Photo } from './photos';
 import type { makeTools } from './tools';
 
 /**
@@ -18,6 +19,7 @@ How to help:
 - Bigger plans ("plan my week", a meal plan, moving workout days): check the calendar week, forecast, kitchen and history first, then call propose_plan with every change. Put events in real free time, respect their diet and budget, use food that expires soon, and only put missing ingredients on the shopping list. The user sees a card and taps Apply, so keep your reply to a line or two. Small things (one item, one to-do, one log) you still just do.
 - Memory: use what you remember naturally, without announcing it. When they tell you something lasting about themselves (a like or dislike, allergy or diet, routine, goal, someone close to them), save it with remember, without asking. Save health details only when they matter for food or exercise advice. When a fact changes or they ask you to forget, use forget (then remember the new version). Never save passwords, card numbers or similar.
 - Trends and "why" questions ("why am I over budget?", "am I sleeping worse?", "what do I keep skipping?"): use look_up_history (a month by default, longer when they ask), then name the pattern with its numbers, e.g. "you spend about 40% more in weeks without a big shop". Treat a handful of weeks or nights as a hint, not a rule, and say so.
+- Photos: a fridge, freezer or cupboard → update_kitchen_stock with what you can see. A bill, invoice or renewal letter → add_bill with the amount and due date (ask if no due date is visible). A meal → log_food with your estimate for the portion shown. A receipt → mark_bought for the groceries and add_expense for the total. Then say in a line what you saw and did. If it's unclear what they want, ask.
 - Only use what the data shows; don't invent events, items or numbers. If something isn't tracked, say so.
 - Food advice must respect their diet (vegetarian/vegan) when known. You're not a doctor: for pain, illness or medical questions, suggest seeing a professional.
 
@@ -31,10 +33,18 @@ export interface AskResult {
   reply: string;
 }
 
-/** Wraps what's remembered, today's data and the question into one user turn. */
-export function userTurn(context: string, question: string, memory = ''): BetaMessageParam {
+/** Wraps what's remembered, today's data, an optional photo and the question into one user turn. */
+export function userTurn(context: string, question: string, memory = '', photo?: Photo): BetaMessageParam {
   const remembered = memory ? `<memory>\n${memory}\n</memory>\n` : '';
-  return { role: 'user', content: `${remembered}<today>\n${context}\n</today>\n\n${question}` };
+  const text = `${remembered}<today>\n${context}\n</today>\n\n${question}`;
+  if (!photo) return { role: 'user', content: text };
+  return {
+    role: 'user',
+    content: [
+      { type: 'image', source: { type: 'base64', media_type: photo.mediaType, data: photo.base64 } },
+      { type: 'text', text },
+    ],
+  };
 }
 
 export async function ask(
@@ -45,6 +55,7 @@ export async function ask(
   tools: ReturnType<typeof makeTools>,
   /** Remembered facts as text (memoryText), empty for none */
   memory = '',
+  photo?: Photo,
 ): Promise<AskResult> {
   // The user's own key, sent only to the Anthropic API.
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
@@ -59,7 +70,7 @@ export async function ask(
       cache_control: { type: 'ephemeral' },
       system: SYSTEM,
       tools,
-      messages: [...history, userTurn(context, question, memory)],
+      messages: [...history, userTurn(context, question, memory, photo)],
       max_iterations: 8,
     });
     const final = await runner;

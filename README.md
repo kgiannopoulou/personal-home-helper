@@ -26,9 +26,13 @@ Chat with an assistant (Claude) that sees today across every module and can upda
 | *"How is my budget looking?"*, *"What should I wear?"* | Reads Money and the forecast |
 | *"Plan my week"*, *"Make a meal plan for this week"* | Proposes a plan as a card: events in your free time, meals that use food expiring soon, missing ingredients for the shopping list, new workout days. **Nothing changes until you tap Apply** (and you can untick parts first) |
 | *"Why am I over budget?"*, *"Am I sleeping worse?"*, *"What chores do I keep skipping?"* | Looks back over weeks of history and names the pattern: *"you spend about 40% more in weeks without a big shop"*, *"your runs go better after 7 hours of sleep"* |
+| 📷 *a photo of your fridge* | Updates the kitchen: how full things look, and items it hadn't tracked yet ✓ |
+| 📷 *a photo of a bill* | Adds it to life admin with the amount and due date, so you're reminded before it's due ✓ |
+| 📷 *a photo of your meal* | Logs it with estimated calories and macros ✓ |
 | *"I'm vegetarian"*, *"I don't like mushrooms"*, *"I go to the gym on Tuesdays"* | Remembers it for every future chat ✓ |
 
-- **17 tools**: `look_up` (detailed data on request), `look_up_history` (trends over past weeks or months) plus actions for shopping, kitchen, water, food, workouts, to-dos, events, expenses, chores and laundry, `propose_plan` for bigger plans you confirm, and `remember` / `forget` for its memory. Small actions happen straight away; plans need a tap. Everything it changed is shown under its reply (*"✓ Added Milk to the shopping list"*).
+- **19 tools**: `look_up` (detailed data on request), `look_up_history` (trends over past weeks or months) plus actions for shopping, kitchen, water, food, workouts, to-dos, events, expenses, chores and laundry, `update_kitchen_stock` and `add_bill` for photos, `propose_plan` for bigger plans you confirm, and `remember` / `forget` for its memory. Small actions happen straight away; plans need a tap. Everything it changed is shown under its reply (*"✓ Added Milk to the shopping list"*).
+- **Photos**: tap 📷 (camera) or 🖼️ (gallery) next to the message box. Photos are scaled to 1568 px and compressed before sending. Each one is saved apart from the chat and put back exactly as sent, so the conversation history never changes (which keeps prompt caching working).
 - **Voice**: dictate with your keyboard's 🎤, and switch on *"Read replies aloud"* (text-to-speech).
 - **Built with** Claude Opus 5.5 through the Anthropic SDK's tool runner, with inputs checked by Zod. Each question carries a compact snapshot of today (`context.ts`). The system prompt and tool list stay fixed and the chat is append-only, so prompt caching keeps follow-up questions cheap. Refusals fall back automatically to another model.
 - A new chat starts each day. You can start one any time with **New chat**.
@@ -73,10 +77,12 @@ src/
   modules/assistant/lib/
     assistant.ts  # Claude call (tool runner, caching, errors) + system prompt
     context.ts    # today's snapshot as text
-    tools.ts      # the 17 tools (Zod schemas)
+    tools.ts      # the 19 tools (Zod schemas)
     actions.ts    # what each tool does in the real modules
     history.ts    # past weeks/months as compact totals (look_up_history)
     plan.ts       # proposed plans: the changes, card text, apply
+    photos.ts     # photos in the chat: sizing, saving apart from the history
+    pickPhoto.ts  # camera/gallery + resize (expo-image-manipulator)
     proactive.ts  # daily nudges + weekly review (structured output)
     useProactive.tsx  # runs them once a day / on Sunday, feeds the morning notification
   modules/assistant/components/PlanCard.tsx  # plan card with Apply
@@ -97,7 +103,7 @@ Each module keeps its own storage key, so data is organised exactly as in the se
 ```bash
 npm install
 npx expo start        # scan the QR code with Expo Go, or press w for web
-npm test              # 180 tests across all modules and the assistant
+npm test              # 186 tests across all modules and the assistant
 npm run typecheck
 ```
 
@@ -110,6 +116,7 @@ On first start the app asks for the permissions its parts need: notifications, m
 - [x] 📈 **History and trends** for "why" questions
 - [x] ✨ **Proactive**: daily nudges and a Sunday weekly review
 - [x] 🗓️ **Plans you apply**: week plans and meal plans behind an Apply button
+- [x] 📷 **Photos in the chat**: fridge, bills and meals
 - [ ] Hands-free voice (speech recognition in a development build)
 - [ ] Shared household sync between phones
 - [ ] Watch app syncing with this app

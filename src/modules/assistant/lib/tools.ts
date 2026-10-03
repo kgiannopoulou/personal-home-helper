@@ -139,6 +139,42 @@ export function makeTools(actions: Actions, log: (entry: ActionLog) => void, mem
       run: run('start_laundry', (i: { type: 'whites' | 'colours' | 'darks' | 'mixed'; minutes?: number }) => actions.startLaundry(i.type, i.minutes)),
     }),
     betaZodTool({
+      name: 'update_kitchen_stock',
+      description:
+        'Update the kitchen inventory from what a photo of the fridge, freezer or cupboard shows: how full each item looks, and items not tracked yet. Only include what you can see; things outside the picture are not empty.',
+      inputSchema: z.object({
+        items: z
+          .array(
+            z.object({
+              name: z.string().min(1).describe('Short everyday name, e.g. "Milk", "Greek yogurt"'),
+              level: z.enum(['full', 'half', 'low', 'empty']),
+              location: z.enum(['fridge', 'freezer', 'pantry', 'bathroom', 'cleaning', 'other']),
+              category: z.enum(['food', 'drinks', 'cleaning', 'bathroom', 'home', 'pet', 'other']),
+              shelf_life_days: z.number().int().min(0).max(730).optional().describe('For new items: typical days it keeps there once opened or bought; 0 if it keeps for long'),
+            }),
+          )
+          .min(1)
+          .max(40),
+      }),
+      run: run('update_kitchen_stock', (i: { items: { name: string; level: 'full' | 'half' | 'low' | 'empty'; location: 'fridge' | 'freezer' | 'pantry' | 'bathroom' | 'cleaning' | 'other'; category: 'food' | 'drinks' | 'cleaning' | 'bathroom' | 'home' | 'pet' | 'other'; shelf_life_days?: number }[] }) =>
+        actions.updateKitchenStock(i.items.map(({ shelf_life_days, ...rest }) => ({ ...rest, shelfLifeDays: shelf_life_days }))),
+      ),
+    }),
+    betaZodTool({
+      name: 'add_bill',
+      description: 'Add a bill, invoice or renewal (e.g. from a photo) to life admin, with its due date and amount, so the user is reminded before it is due.',
+      inputSchema: z.object({
+        title: z.string().min(1).describe('Who and what, e.g. "Electricity – DEI" or "Car insurance renewal"'),
+        kind: z.enum(['bill', 'renewal', 'appointment', 'other']),
+        due: date,
+        amount: z.number().positive().max(100000).optional(),
+        repeat_months: z.number().int().min(0).max(24).optional().describe('1 for monthly bills, 12 for yearly renewals, 0 or leave out for one-offs'),
+      }),
+      run: run('add_bill', (i: { title: string; kind: 'bill' | 'renewal' | 'appointment' | 'other'; due: string; amount?: number; repeat_months?: number }) =>
+        actions.addBill({ title: i.title, kind: i.kind, due: i.due, amount: i.amount, repeatMonths: i.repeat_months }),
+      ),
+    }),
+    betaZodTool({
       name: 'propose_plan',
       description:
         'Propose a bigger plan the user can apply with one tap: a week plan (events in free time for workouts, chores and errands, to-dos), a meal plan (meals on given days, missing ingredients for the shopping list), or new workout days. Nothing changes until they tap Apply on the card, so do not also make these changes with other tools.',

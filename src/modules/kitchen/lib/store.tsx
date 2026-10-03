@@ -11,6 +11,14 @@ type NewItemOptions = Partial<Pick<InventoryItem, 'category' | 'location' | 'qua
   shelfLifeDays?: number;
 };
 
+export interface StockUpdate {
+  name: string;
+  level: Level;
+  location?: InventoryItem['location'];
+  category?: InventoryItem['category'];
+  shelfLifeDays?: number;
+}
+
 interface Store {
   state: AppState;
   ready: boolean;
@@ -22,6 +30,8 @@ interface Store {
   /** Applies a parsed sentence like "I finished the milk". Returns a short summary. */
   runCommand: (cmd: Command) => string;
   addReceipt: (items: Receipt['items']) => number;
+  /** What a photo shows: sets levels of known items and adds new ones. Returns a short summary. */
+  applyStock: (items: StockUpdate[]) => string;
   addToBuy: (name: string) => void;
   removeToBuy: (name: string) => void;
   clearToBuy: () => void;
@@ -138,14 +148,37 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return items.length;
   }, []);
 
+  const applyStock = useCallback((items: StockUpdate[]): string => {
+    let s = stateRef.current;
+    const done: string[] = [];
+    for (const u of items) {
+      const item = findItem(s.items, u.name);
+      if (item) {
+        if (item.level !== u.level) {
+          s = setLevelIn(s, item.id, u.level);
+          done.push(`${item.name} → ${u.level}`);
+        }
+        continue;
+      }
+      if (u.level === 'empty') continue;
+      s = upsert(s, u.name, { location: u.location, category: u.category, shelfLifeDays: u.shelfLifeDays || undefined });
+      const added = findItem(s.items, u.name);
+      if (added && u.level !== 'full') s = setLevelIn(s, added.id, u.level);
+      done.push(`added ${u.name}${u.level !== 'full' ? ` (${u.level})` : ''}`);
+    }
+    stateRef.current = s;
+    setState(s);
+    return done.length ? done.join(', ') : 'nothing new';
+  }, []);
+
   const addToBuy = useCallback((name: string) => setState((s) => ({ ...s, toBuy: addUnique(s.toBuy, name.trim()) })), []);
   const removeToBuy = useCallback((name: string) => setState((s) => ({ ...s, toBuy: withoutName(s.toBuy, name) })), []);
   const clearToBuy = useCallback(() => setState((s) => ({ ...s, toBuy: [] })), []);
   const setSettings = useCallback((settings: Settings) => setState((s) => ({ ...s, settings })), []);
 
   const value = useMemo(
-    () => ({ state, ready, addItem, updateItem, setLevel, removeItem, runCommand, addReceipt, addToBuy, removeToBuy, clearToBuy, setSettings }),
-    [state, ready, addItem, updateItem, setLevel, removeItem, runCommand, addReceipt, addToBuy, removeToBuy, clearToBuy, setSettings],
+    () => ({ state, ready, addItem, updateItem, setLevel, removeItem, runCommand, addReceipt, applyStock, addToBuy, removeToBuy, clearToBuy, setSettings }),
+    [state, ready, addItem, updateItem, setLevel, removeItem, runCommand, addReceipt, applyStock, addToBuy, removeToBuy, clearToBuy, setSettings],
   );
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

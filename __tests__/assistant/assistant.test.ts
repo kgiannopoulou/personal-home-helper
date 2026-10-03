@@ -23,6 +23,8 @@ const fakeActions = (): Actions => ({
   lookUpHistory: jest.fn(() => 'history'),
   planMeal: jest.fn(() => 'Planned meal'),
   setTrainingDays: jest.fn(() => 'Moved workouts'),
+  updateKitchenStock: jest.fn(() => 'Kitchen updated'),
+  addBill: jest.fn(() => 'Added bill'),
 });
 
 const noMemory = memoryBox(() => [], () => {});
@@ -50,6 +52,8 @@ describe('tools', () => {
       'complete_chore',
       'add_chore_to_today',
       'start_laundry',
+      'update_kitchen_stock',
+      'add_bill',
       'propose_plan',
       'remember',
       'forget',
@@ -70,6 +74,19 @@ describe('tools', () => {
       { tool: 'add_to_shopping_list', result: 'Added Milk, Eggs' },
       { tool: 'log_water', result: 'Logged 250 ml' },
     ]);
+  });
+
+  test('photo tools: fridge stock and bills go to the kitchen and life admin', async () => {
+    const actions = fakeActions();
+    const tools = toolMap(actions);
+    await tools.update_kitchen_stock.run(
+      tools.update_kitchen_stock.parse({ items: [{ name: 'Milk', level: 'low', location: 'fridge', category: 'drinks', shelf_life_days: 5 }] }),
+    );
+    expect(actions.updateKitchenStock).toHaveBeenCalledWith([{ name: 'Milk', level: 'low', location: 'fridge', category: 'drinks', shelfLifeDays: 5 }]);
+    await tools.add_bill.run(tools.add_bill.parse({ title: 'Electricity', kind: 'bill', due: '2026-10-20', amount: 64.3, repeat_months: 1 }));
+    expect(actions.addBill).toHaveBeenCalledWith({ title: 'Electricity', kind: 'bill', due: '2026-10-20', amount: 64.3, repeatMonths: 1 });
+    expect(() => tools.add_bill.parse({ title: 'Water', kind: 'bill', due: 'next Friday' })).toThrow();
+    expect(() => tools.update_kitchen_stock.parse({ items: [{ name: 'Milk', level: 'gone', location: 'fridge', category: 'drinks' }] })).toThrow();
   });
 
   test('propose_plan only shows a card: nothing changes until Apply', async () => {

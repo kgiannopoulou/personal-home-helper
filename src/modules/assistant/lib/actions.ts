@@ -167,6 +167,14 @@ export function useAssistantActions(): Actions {
       activity.setSchedule({ ...activity.state.schedule, enabled: true, weekdays: days, time: time ?? activity.state.schedule.time });
       return `Workouts now on ${days.map((d) => WEEKDAY_NAMES[d - 1]).join(', ')} at ${time ?? activity.state.schedule.time}.`;
     },
+    updateKitchenStock(items) {
+      return `Kitchen updated: ${kitchen.applyStock(items)}.`;
+    },
+    addBill(b) {
+      const c = money.state.settings.currency;
+      planner.addAdmin({ title: b.title, kind: b.kind, due: b.due, amount: b.amount, repeatMonths: b.repeatMonths ?? 0, remindDays: 3 });
+      return `Added “${b.title}”${b.amount ? ` (${c}${b.amount.toFixed(2)})` : ''} to life admin, due ${b.due}. You'll be reminded 3 days before.`;
+    },
     lookUpHistory(module, days) {
       return historySummary(module, days, {
         money: money.state,

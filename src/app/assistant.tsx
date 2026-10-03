@@ -1,12 +1,14 @@
 import * as Speech from 'expo-speech';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import { PlanCard } from '../modules/assistant/components/PlanCard';
 import { useAssistantActions } from '../modules/assistant/lib/actions';
 import { ask, AssistantError } from '../modules/assistant/lib/assistant';
 import { bubble, loadChat, loadMemory, newChat, saveChat, saveMemory, SUGGESTIONS, type Chat } from '../modules/assistant/lib/chat';
 import { todayContext } from '../modules/assistant/lib/context';
 import { memoryBox, memoryText, removeFact, type Fact } from '../modules/assistant/lib/memory';
+import type { Photo } from '../modules/assistant/lib/photos';
+import { pickPhoto } from '../modules/assistant/lib/pickPhoto';
 import { appliedNote, applyPlan } from '../modules/assistant/lib/plan';
 import { makeTools, type ActionLog } from '../modules/assistant/lib/tools';
 import { getApiKey, setApiKey } from '../modules/kitchen/lib/storage';
@@ -49,6 +51,8 @@ export default function Assistant() {
   const [facts, setFacts] = useState<Fact[]>([]);
   const factsRef = useRef<Fact[]>([]);
   const [showMemory, setShowMemory] = useState(false);
+  const [photo, setPhoto] = useState<Photo | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   useEffect(() => {
     loadChat().then(setChat);
@@ -74,13 +78,26 @@ export default function Assistant() {
     saveMemory(next).catch((e) => console.warn('Could not save memory', e));
   };
 
+  const attach = async (source: 'camera' | 'library') => {
+    setPhotoError(null);
+    try {
+      const p = await pickPhoto(source);
+      if (p) setPhoto(p);
+    } catch (e) {
+      setPhotoError(e instanceof Error ? e.message : 'Could not get the photo.');
+    }
+  };
+
   const send = async (question: string) => {
     const current = chatRef.current;
-    const q = question.trim();
+    const sending = photo;
+    // A photo on its own is fine: the assistant works out what it shows.
+    const q = question.trim() || (sending ? 'Here’s a photo.' : '');
     if (!q || !current || busy) return;
     setText('');
+    setPhoto(null);
     setBusy(true);
-    const withQuestion = { ...current, bubbles: [...current.bubbles, bubble('user', q)] };
+    const withQuestion = { ...current, bubbles: [...current.bubbles, bubble('user', q, sending ? { photo: sending.uri } : {})] };
     update(withQuestion);
     const done: ActionLog[] = [];
     try {
@@ -88,9 +105,8 @@ export default function Assistant() {
       if (!key) throw new AssistantError('Add your Anthropic API key first.');
       const memory = memoryBox(() => factsRef.current, updateFacts);
       const tools = makeTools(actions, (a) => done.push(a), memory);
-      const notes = current.notes?.length ? `
-Since your last reply: ${current.notes.join(' ')}` : '';
-      const { history, reply } = await ask(key, current.history, todayContext(hub) + notes, q, tools, memoryText(factsRef.current));
+      const notes = current.notes?.length ? `\nSince your last reply: ${current.notes.join(' ')}` : '';
+      const { history, reply } = await ask(key, current.history, todayContext(hub) + notes, q, tools, memoryText(factsRef.current), sending ?? undefined);
       const plan = done.find((a) => a.plan)?.plan;
       const changed = done.filter((a) => !a.plan).map((a) => a.result);
       update({ ...withQuestion, history, notes: [], bubbles: [...withQuestion.bubbles, bubble('assistant', reply, { actions: changed, plan })] });
@@ -155,6 +171,9 @@ Since your last reply: ${current.notes.join(' ')}` : '';
                 borderColor: colors.border,
               }}
             >
+              {!!b.photo && (
+                <Image source={{ uri: b.photo }} style={{ width: 200, height: 150, borderRadius: 10, marginBottom: 6 }} resizeMode="cover" accessibilityLabel="Your photo" />
+              )}
               <Text style={[styles.text, b.role === 'user' && { color: '#fff' }]} selectable>
                 {b.text}
               </Text>
@@ -206,11 +225,29 @@ Since your last reply: ${current.notes.join(' ')}` : '';
       </ScrollView>
 
       <View style={{ padding: 12, gap: 8, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card }}>
+        {photo && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Image source={{ uri: photo.uri }} style={{ width: 56, height: 56, borderRadius: 8 }} accessibilityLabel="Photo to send" />
+            <Muted>Photo ready. Add a note or just tap Send.</Muted>
+            <Pressable accessibilityRole="button" accessibilityLabel="Remove photo" onPress={() => setPhoto(null)} hitSlop={8}>
+              <Text style={{ color: colors.muted, fontSize: 16 }}>✕</Text>
+            </Pressable>
+          </View>
+        )}
+        {!!photoError && <Text style={{ color: colors.danger, fontSize: 13 }}>{photoError}</Text>}
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end' }}>
+          {Platform.OS !== 'web' && (
+            <Pressable accessibilityRole="button" accessibilityLabel="Take a photo" onPress={() => attach('camera')} disabled={busy} hitSlop={6} style={{ paddingVertical: 10 }}>
+              <Text style={{ fontSize: 22 }}>📷</Text>
+            </Pressable>
+          )}
+          <Pressable accessibilityRole="button" accessibilityLabel="Choose a photo" onPress={() => attach('library')} disabled={busy} hitSlop={6} style={{ paddingVertical: 10 }}>
+            <Text style={{ fontSize: 22 }}>🖼️</Text>
+          </Pressable>
           <TextInput
             value={text}
             onChangeText={setText}
-            placeholder="Ask or tell me anything… (🎤 use your keyboard's mic)"
+            placeholder={photo ? 'Anything to add? (optional)' : 'Ask, tell me, or send a photo of your fridge, a bill or a meal…'}
             placeholderTextColor={colors.muted}
             multiline
             style={[styles.input, { flex: 1, maxHeight: 120 }]}
@@ -219,7 +256,7 @@ Since your last reply: ${current.notes.join(' ')}` : '';
             returnKeyType="send"
             accessibilityLabel="Message"
           />
-          <Button label="Send" disabled={!text.trim() || busy} onPress={() => send(text)} />
+          <Button label="Send" disabled={(!text.trim() && !photo) || busy} onPress={() => send(text)} />
         </View>
         <View style={[styles.progressHeader, { alignItems: 'center' }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>

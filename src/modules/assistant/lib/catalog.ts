@@ -1,6 +1,8 @@
 import type { Intensity, WorkoutType } from '../../activity/lib/types';
 import type { LaundryType } from '../../chores/lib/types';
 import type { Meal } from '../../food/lib/types';
+import type { StockUpdate } from '../../kitchen/lib/store';
+import type { AdminKind } from '../../planner/lib/types';
 import type { ExpenseCategory } from '../../money/lib/types';
 import { normalizeName } from '../../../shared/homeCore';
 
@@ -30,6 +32,10 @@ export interface Actions {
   planMeal(m: { date: string; meal: Meal; name: string }): string;
   /** New days (1 = Sunday … 7 = Saturday) and optional time for scheduled workouts */
   setTrainingDays(weekdays: number[], time?: string): string;
+  /** What a fridge or cupboard photo shows */
+  updateKitchenStock(items: StockUpdate[]): string;
+  /** A bill or renewal, as a life-admin item with a due date */
+  addBill(b: { title: string; kind: AdminKind; due: string; amount?: number; repeatMonths?: number }): string;
 }
 
 /** Best match for a name the user said: exact, then contains, case- and plural-insensitive. */
