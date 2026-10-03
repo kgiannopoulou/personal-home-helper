@@ -24,12 +24,14 @@ Chat with an assistant (Claude) that sees today across every module and can upda
 | *"I had a chicken salad for lunch"* | Logs it with estimated calories and macros ✓ |
 | *"I spent €12 on lunch"*, *"Remind me to call the dentist Friday"*, *"Vacuum done"*, *"Start a darks wash"* | Logs the expense, adds the to-do, ticks off the chore, starts the laundry timer ✓ |
 | *"How is my budget looking?"*, *"Plan next week"*, *"What should I wear?"* | Reads Money, the calendar week and the forecast |
+| *"Why am I over budget?"*, *"Am I sleeping worse?"*, *"What chores do I keep skipping?"* | Looks back over weeks of history and names the pattern: *"you spend about 40% more in weeks without a big shop"*, *"your runs go better after 7 hours of sleep"* |
 | *"I'm vegetarian"*, *"I don't like mushrooms"*, *"I go to the gym on Tuesdays"* | Remembers it for every future chat ✓ |
 
-- **15 tools**: `look_up` (detailed data on request) plus actions for shopping, kitchen, water, food, workouts, to-dos, events, expenses, chores and laundry, and `remember` / `forget` for its memory. Everything it changed is shown under its reply (*"✓ Added Milk to the shopping list"*).
+- **16 tools**: `look_up` (detailed data on request), `look_up_history` (trends over past weeks or months) plus actions for shopping, kitchen, water, food, workouts, to-dos, events, expenses, chores and laundry, and `remember` / `forget` for its memory. Everything it changed is shown under its reply (*"✓ Added Milk to the shopping list"*).
 - **Voice**: dictate with your keyboard's 🎤, and switch on *"Read replies aloud"* (text-to-speech).
 - **Built with** Claude Opus 5.5 through the Anthropic SDK's tool runner, with inputs checked by Zod. Each question carries a compact snapshot of today (`context.ts`). The system prompt and tool list stay fixed and the chat is append-only, so prompt caching keeps follow-up questions cheap. Refusals fall back automatically to another model.
 - A new chat starts each day. You can start one any time with **New chat**.
+- **History**: today's snapshot only covers today, so for trends and "why" questions the assistant calls `look_up_history(module, days)`. It gets compact totals, not raw logs: spending per week and category, the change versus the period before, and weeks with vs without a big grocery shop (money); average water and food, weekdays vs weekends (food); steps, sleep and workouts per week, and how days and coached runs go after good vs short nights (activity); chores that keep slipping (chores); shopping trips, usual days and how often each item gets bought (shopping). Windows over 16 weeks are grouped by month.
 - **Memory**: lasting facts about you (tastes, diet and allergies, routines, goals, people close to you) are saved when you mention them and sent with every question, so the assistant keeps knowing you across days. Tap **Memory** under the chat to see everything it remembers and delete any fact. Memory stays on your phone.
 
 ## What's inside
@@ -69,8 +71,9 @@ src/
   modules/assistant/lib/
     assistant.ts  # Claude call (tool runner, caching, errors) + system prompt
     context.ts    # today's snapshot as text
-    tools.ts      # the 15 tools (Zod schemas)
+    tools.ts      # the 16 tools (Zod schemas)
     actions.ts    # what each tool does in the real modules
+    history.ts    # past weeks/months as compact totals (look_up_history)
     memory.ts     # remembered facts: add, forget, as text
     chat.ts       # saved chat, saved memory + suggestions
   shared/
@@ -88,7 +91,7 @@ Each module keeps its own storage key, so data is organised exactly as in the se
 ```bash
 npm install
 npx expo start        # scan the QR code with Expo Go, or press w for web
-npm test              # 158 tests across all modules and the assistant
+npm test              # 166 tests across all modules and the assistant
 npm run typecheck
 ```
 
@@ -98,6 +101,7 @@ On first start the app asks for the permissions its parts need: notifications, m
 
 - [x] 🧠 **AI Hub**: chat and voice across all modules
 - [x] 🗂️ **Assistant memory** across chats
+- [x] 📈 **History and trends** for "why" questions
 - [ ] Hands-free voice (speech recognition in a development build)
 - [ ] Proactive morning message from the assistant
 - [ ] Shared household sync between phones

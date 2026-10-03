@@ -1,7 +1,7 @@
 import { betaZodTool } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
 import { EXPENSE_CATEGORIES } from '../../money/lib/budget';
-import { SECTIONS, type Actions } from './catalog';
+import { HISTORY_MODULES, SECTIONS, type Actions, type HistoryModule } from './catalog';
 import { FACT_KINDS, type FactKind, type MemoryBox } from './memory';
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe('YYYY-MM-DD');
@@ -24,7 +24,7 @@ export function makeTools(actions: Actions, log: (entry: ActionLog) => void, mem
     async (input: I) => {
       try {
         const result = fn(input);
-        if (name !== 'look_up') log({ tool: name, result });
+        if (!name.startsWith('look_up')) log({ tool: name, result });
         return result;
       } catch (e) {
         return `Error: ${e instanceof Error ? e.message : String(e)}`;
@@ -38,6 +38,16 @@ export function makeTools(actions: Actions, log: (entry: ActionLog) => void, mem
         'Read more detail than today’s summary: kitchen (every item, level, expiry), shopping (full list), chores (every task, frequency, when due), calendar_week (next 7 days), todos (all open), food_week (7-day nutrition averages and gaps), activity_week, money (this month by category and recent expenses), forecast (7 days).',
       inputSchema: z.object({ section: z.enum(SECTIONS) }),
       run: run('look_up', (i: { section: (typeof SECTIONS)[number] }) => actions.lookUp(i.section)),
+    }),
+    betaZodTool({
+      name: 'look_up_history',
+      description:
+        'Read compact totals over the past days, for trends and "why" questions (over budget, sleeping worse, what keeps slipping). money: spending per week and category, change versus the period before, weeks with vs without a big grocery shop. food: average water and food, weekdays vs weekends. activity: steps, sleep and workouts per week, and how days go after good vs short sleep. chores: what keeps slipping and when chores get done. shopping: trips, usual days, how often each item gets bought.',
+      inputSchema: z.object({
+        module: z.enum(HISTORY_MODULES),
+        days: z.number().int().min(7).max(365).describe('How far back, e.g. 28 for about a month, 91 for three months'),
+      }),
+      run: run('look_up_history', (i: { module: HistoryModule; days: number }) => actions.lookUpHistory(i.module, i.days)),
     }),
     betaZodTool({
       name: 'add_to_shopping_list',

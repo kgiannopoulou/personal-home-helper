@@ -17,6 +17,7 @@ import { useStore as useWeather } from '../../weather/lib/store';
 import { weatherLabel } from '../../weather/lib/weather';
 import { toDateKey } from '../../../shared/dates';
 import { findByName, type Actions } from './catalog';
+import { historySummary } from './history';
 
 const at = (date: string, hhmm: string) => {
   const [y, m, d] = date.split('-').map(Number);
@@ -147,6 +148,16 @@ export function useAssistantActions(): Actions {
           return f.days.map((d) => `${d.date}: ${weatherLabel(d.code).text}, ${Math.round(d.min)}–${Math.round(d.max)}°C, rain ${d.rainChance}%`).join('\n');
         }
       }
+    },
+    lookUpHistory(module, days) {
+      return historySummary(module, days, {
+        money: money.state,
+        food: food.state,
+        activity: activity.state,
+        chores: chores.state,
+        shopping: shopping.state,
+        kitchen: kitchen.state,
+      });
     },
   };
 }

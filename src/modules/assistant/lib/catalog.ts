@@ -7,6 +7,9 @@ import { normalizeName } from '../../../shared/homeCore';
 export const SECTIONS = ['kitchen', 'shopping', 'chores', 'calendar_week', 'todos', 'food_week', 'activity_week', 'money', 'forecast'] as const;
 export type Section = (typeof SECTIONS)[number];
 
+export const HISTORY_MODULES = ['money', 'food', 'activity', 'chores', 'shopping'] as const;
+export type HistoryModule = (typeof HISTORY_MODULES)[number];
+
 /** Everything the assistant can do. Each returns a short sentence saying what happened. */
 export interface Actions {
   addToShopping(items: string[]): string;
@@ -22,6 +25,7 @@ export interface Actions {
   addChoreToToday(name: string): string;
   startLaundry(type: LaundryType, minutes?: number): string;
   lookUp(section: Section): string;
+  lookUpHistory(module: HistoryModule, days: number): string;
 }
 
 /** Best match for a name the user said: exact, then contains, case- and plural-insensitive. */

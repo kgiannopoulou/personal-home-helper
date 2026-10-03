@@ -20,6 +20,7 @@ const fakeActions = (): Actions => ({
   addChoreToToday: jest.fn(() => 'Pinned'),
   startLaundry: jest.fn(() => 'Laundry on'),
   lookUp: jest.fn(() => 'details'),
+  lookUpHistory: jest.fn(() => 'history'),
 });
 
 const noMemory = memoryBox(() => [], () => {});
@@ -34,6 +35,7 @@ describe('tools', () => {
     const names = makeTools(fakeActions(), () => {}, noMemory).map((t) => t.name);
     expect(names).toEqual([
       'look_up',
+      'look_up_history',
       'add_to_shopping_list',
       'mark_finished',
       'mark_bought',
@@ -59,6 +61,8 @@ describe('tools', () => {
     expect(await tools.log_water.run(tools.log_water.parse({ ml: 250 }))).toBe('Logged 250 ml');
     expect(await tools.look_up.run(tools.look_up.parse({ section: 'kitchen' }))).toBe('details');
     expect(actions.lookUp).toHaveBeenCalledWith('kitchen');
+    expect(await tools.look_up_history.run(tools.look_up_history.parse({ module: 'money', days: 28 }))).toBe('history');
+    expect(actions.lookUpHistory).toHaveBeenCalledWith('money', 28);
     expect(log).toEqual([
       { tool: 'add_to_shopping_list', result: 'Added Milk, Eggs' },
       { tool: 'log_water', result: 'Logged 250 ml' },
@@ -71,6 +75,8 @@ describe('tools', () => {
     expect(() => tools.add_event.parse({ title: 'Dentist', date: 'tomorrow' })).toThrow();
     expect(() => tools.add_expense.parse({ amount: 12, category: 'yachts' })).toThrow();
     expect(() => tools.look_up.parse({ section: 'secrets' })).toThrow();
+    expect(() => tools.look_up_history.parse({ module: 'money', days: 5000 })).toThrow();
+    expect(() => tools.look_up_history.parse({ module: 'planner', days: 28 })).toThrow();
     expect(tools.add_event.parse({ title: 'Dentist', date: '2026-10-20', start: '09:30' })).toEqual({ title: 'Dentist', date: '2026-10-20', start: '09:30' });
   });
 
