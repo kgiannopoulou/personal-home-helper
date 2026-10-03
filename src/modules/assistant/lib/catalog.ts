@@ -26,6 +26,10 @@ export interface Actions {
   startLaundry(type: LaundryType, minutes?: number): string;
   lookUp(section: Section): string;
   lookUpHistory(module: HistoryModule, days: number): string;
+  /** A planned meal, shown in the planner at that meal's usual time */
+  planMeal(m: { date: string; meal: Meal; name: string }): string;
+  /** New days (1 = Sunday … 7 = Saturday) and optional time for scheduled workouts */
+  setTrainingDays(weekdays: number[], time?: string): string;
 }
 
 /** Best match for a name the user said: exact, then contains, case- and plural-insensitive. */

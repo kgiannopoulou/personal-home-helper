@@ -27,6 +27,8 @@ interface Store {
   removePerson: (id: string) => void;
   toggleTripCheck: (tripKey: string, itemId: string) => void;
   setSettings: (s: Settings) => void;
+  /** Extra lines for the morning notification per day (the assistant's nudges); not saved here */
+  setBriefingExtras: (extra: Record<string, string[]>) => void;
 }
 
 const StoreContext = createContext<Store | null>(null);
@@ -37,6 +39,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [phoneEvents, setPhoneEvents] = useState<CalEvent[]>([]);
   const [calendarError, setCalendarError] = useState<string | null>(null);
+  const [briefingExtras, setBriefingExtras] = useState<Record<string, string[]>>({});
   const loaded = useRef(false);
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -86,10 +89,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!ready) return;
     const { briefingEnabled, briefingHour, briefingMinute } = state.settings;
     const id = setTimeout(() => {
-      syncBriefings(briefingInput, briefingEnabled, briefingHour, briefingMinute).catch((e) => console.warn('Could not schedule briefing', e));
+      syncBriefings(briefingInput, briefingEnabled, briefingHour, briefingMinute, briefingExtras).catch((e) => console.warn('Could not schedule briefing', e));
     }, 1500);
     return () => clearTimeout(id);
-  }, [ready, briefingInput, state.settings]);
+  }, [ready, briefingInput, state.settings, briefingExtras]);
 
   // Re-read the calendar when you pick different calendars.
   const calendarKey = JSON.stringify(state.settings.calendarIds);
@@ -174,6 +177,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       removePerson,
       toggleTripCheck,
       setSettings,
+      setBriefingExtras,
     }),
     [state, ready, events, calendarError, refreshCalendar, briefingInput, addEvent, removeEvent, addTodo, toggleTodo, removeTodo, addAdmin, completeAdminItem, removeAdmin, addPerson, updatePerson, removePerson, toggleTripCheck, setSettings],
   );

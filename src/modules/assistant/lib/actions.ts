@@ -18,11 +18,19 @@ import { weatherLabel } from '../../weather/lib/weather';
 import { toDateKey } from '../../../shared/dates';
 import { findByName, type Actions } from './catalog';
 import { historySummary } from './history';
+import { WEEKDAY_NAMES } from './plan';
 
 const at = (date: string, hhmm: string) => {
   const [y, m, d] = date.split('-').map(Number);
   const [h, min] = hhmm.split(':').map(Number);
   return new Date(y, m - 1, d, h, min);
+};
+
+const MEAL_EMOJI = { breakfast: '🥣', lunch: '🥗', dinner: '🍽️', snack: '🍎' } as const;
+const plusMinutes = (hhmm: string, minutes: number) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  const t = Math.min(h * 60 + m + minutes, 23 * 60 + 59);
+  return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
 };
 
 /** Binds the actions to the real module stores. */
@@ -36,7 +44,7 @@ export function useAssistantActions(): Actions {
   const planner = usePlanner();
   const weather = useWeather();
 
-  return {
+  const actions: Actions = {
     addToShopping(items) {
       const added = shopping.addItems(items.map((name) => ({ name })), 'manual');
       return added ? `Added ${items.join(', ')} to the shopping list.` : `${items.join(', ')} ${items.length > 1 ? 'were' : 'was'} already on the shopping list.`;
@@ -149,6 +157,16 @@ export function useAssistantActions(): Actions {
         }
       }
     },
+    planMeal(m) {
+      const at = m.meal === 'snack' ? '16:00' : food.state.reminders.meals[m.meal];
+      const title = `${MEAL_EMOJI[m.meal]} ${m.meal[0].toUpperCase()}${m.meal.slice(1)}: ${m.name}`;
+      return actions.addEvent({ title, date: m.date, start: at, end: plusMinutes(at, m.meal === 'snack' ? 15 : 45) });
+    },
+    setTrainingDays(weekdays, time) {
+      const days = [...new Set(weekdays)].sort();
+      activity.setSchedule({ ...activity.state.schedule, enabled: true, weekdays: days, time: time ?? activity.state.schedule.time });
+      return `Workouts now on ${days.map((d) => WEEKDAY_NAMES[d - 1]).join(', ')} at ${time ?? activity.state.schedule.time}.`;
+    },
     lookUpHistory(module, days) {
       return historySummary(module, days, {
         money: money.state,
@@ -160,4 +178,5 @@ export function useAssistantActions(): Actions {
       });
     },
   };
+  return actions;
 }

@@ -21,6 +21,8 @@ const fakeActions = (): Actions => ({
   startLaundry: jest.fn(() => 'Laundry on'),
   lookUp: jest.fn(() => 'details'),
   lookUpHistory: jest.fn(() => 'history'),
+  planMeal: jest.fn(() => 'Planned meal'),
+  setTrainingDays: jest.fn(() => 'Moved workouts'),
 });
 
 const noMemory = memoryBox(() => [], () => {});
@@ -48,6 +50,7 @@ describe('tools', () => {
       'complete_chore',
       'add_chore_to_today',
       'start_laundry',
+      'propose_plan',
       'remember',
       'forget',
     ]);
@@ -67,6 +70,26 @@ describe('tools', () => {
       { tool: 'add_to_shopping_list', result: 'Added Milk, Eggs' },
       { tool: 'log_water', result: 'Logged 250 ml' },
     ]);
+  });
+
+  test('propose_plan only shows a card: nothing changes until Apply', async () => {
+    const actions = fakeActions();
+    const log: ActionLog[] = [];
+    const tools = toolMap(actions, (e) => log.push(e));
+    const input = {
+      title: 'Your week',
+      summary: 'Two runs and a big shop.',
+      changes: [
+        { kind: 'event', title: '🏃 Run', date: '2026-10-06', start: '07:00', end: '07:40' },
+        { kind: 'shopping', items: ['Spinach'] },
+      ],
+    };
+    expect(await tools.propose_plan.run(tools.propose_plan.parse(input))).toMatch(/card with 2 changes/);
+    expect(actions.addEvent).not.toHaveBeenCalled();
+    expect(actions.addToShopping).not.toHaveBeenCalled();
+    expect(log).toEqual([{ tool: 'propose_plan', result: 'Proposed “Your week”', plan: { ...input, id: expect.any(String) } }]);
+    expect(await tools.propose_plan.run(tools.propose_plan.parse({ ...input, changes: [] }))).toMatch(/^Error: A plan needs at least one change/);
+    expect(() => tools.propose_plan.parse({ ...input, changes: [{ kind: 'teleport' }] })).toThrow();
   });
 
   test('inputs are validated before anything changes', () => {

@@ -1,11 +1,13 @@
 import * as Speech from 'expo-speech';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { PlanCard } from '../modules/assistant/components/PlanCard';
 import { useAssistantActions } from '../modules/assistant/lib/actions';
 import { ask, AssistantError } from '../modules/assistant/lib/assistant';
 import { bubble, loadChat, loadMemory, newChat, saveChat, saveMemory, SUGGESTIONS, type Chat } from '../modules/assistant/lib/chat';
 import { todayContext } from '../modules/assistant/lib/context';
 import { memoryBox, memoryText, removeFact, type Fact } from '../modules/assistant/lib/memory';
+import { appliedNote, applyPlan } from '../modules/assistant/lib/plan';
 import { makeTools, type ActionLog } from '../modules/assistant/lib/tools';
 import { getApiKey, setApiKey } from '../modules/kitchen/lib/storage';
 import { Button, Card, Chip, colors, Field, Muted, styles, Title } from '../shared/ui';
@@ -86,16 +88,32 @@ export default function Assistant() {
       if (!key) throw new AssistantError('Add your Anthropic API key first.');
       const memory = memoryBox(() => factsRef.current, updateFacts);
       const tools = makeTools(actions, (a) => done.push(a), memory);
-      const { history, reply } = await ask(key, current.history, todayContext(hub), q, tools, memoryText(factsRef.current));
-      update({ ...withQuestion, history, bubbles: [...withQuestion.bubbles, bubble('assistant', reply, { actions: done.map((a) => a.result) })] });
+      const notes = current.notes?.length ? `
+Since your last reply: ${current.notes.join(' ')}` : '';
+      const { history, reply } = await ask(key, current.history, todayContext(hub) + notes, q, tools, memoryText(factsRef.current));
+      const plan = done.find((a) => a.plan)?.plan;
+      const changed = done.filter((a) => !a.plan).map((a) => a.result);
+      update({ ...withQuestion, history, notes: [], bubbles: [...withQuestion.bubbles, bubble('assistant', reply, { actions: changed, plan })] });
       if (withQuestion.speak && Platform.OS !== 'web') Speech.speak(reply);
     } catch (e) {
       const message = e instanceof AssistantError ? e.message : 'Something went wrong. Please try again.';
       // Anything already done in the app is still listed, even if the reply failed.
-      update({ ...withQuestion, bubbles: [...withQuestion.bubbles, bubble('assistant', message, { error: true, actions: done.map((a) => a.result) })] });
+      update({ ...withQuestion, bubbles: [...withQuestion.bubbles, bubble('assistant', message, { error: true, actions: done.filter((a) => !a.plan).map((a) => a.result) })] });
     } finally {
       setBusy(false);
     }
+  };
+
+  const apply = (bubbleId: string, indexes: number[]) => {
+    const current = chatRef.current;
+    const plan = current?.bubbles.find((b) => b.id === bubbleId)?.plan;
+    if (!current || !plan || plan.applied) return;
+    const applied = applyPlan(indexes.map((i) => plan.changes[i]), actions);
+    update({
+      ...current,
+      notes: [...(current.notes ?? []), appliedNote(plan, indexes.length)],
+      bubbles: current.bubbles.map((b) => (b.id === bubbleId ? { ...b, plan: { ...plan, applied } } : b)),
+    });
   };
 
   if (!chat || hasKey === null) return <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} />;
@@ -146,6 +164,7 @@ export default function Assistant() {
                 ✓ {a}
               </Text>
             ))}
+            {b.plan && <PlanCard plan={b.plan} onApply={(indexes) => apply(b.id, indexes)} disabled={busy} />}
           </View>
         ))}
         {showMemory && (

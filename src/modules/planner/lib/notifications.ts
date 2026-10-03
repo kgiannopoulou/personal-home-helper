@@ -36,7 +36,14 @@ async function ensurePermission(): Promise<boolean> {
  * Schedules the morning briefing for the next 7 days with each day's real contents.
  * Called whenever the app opens or data changes, so the text stays up to date.
  */
-export async function syncBriefings(input: BriefingInput, enabled: boolean, hour: number, minute: number): Promise<void> {
+export async function syncBriefings(
+  input: BriefingInput,
+  enabled: boolean,
+  hour: number,
+  minute: number,
+  /** Extra lines per day (the assistant's nudges), YYYY-MM-DD → lines */
+  extra: Record<string, string[]> = {},
+): Promise<void> {
   if (!notificationsSupported) return;
   await cancelScheduled('planner-');
   if (!enabled || !(await ensurePermission())) return;
@@ -48,7 +55,8 @@ export async function syncBriefings(input: BriefingInput, enabled: boolean, hour
     const [y, m, d] = key.split('-').map(Number);
     const at = new Date(y, m - 1, d, hour, minute);
     if (at <= now) continue;
-    const { title, body } = briefingText(morningBriefing(input, key));
+    const { title, body: summary } = briefingText(morningBriefing(input, key));
+    const body = [summary, ...(extra[key] ?? [])].join('\n');
     jobs.push(
       Notifications.scheduleNotificationAsync({
         identifier: notificationId('planner-'),

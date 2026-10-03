@@ -14,7 +14,8 @@ How to help:
 - Connect the parts. A good answer often combines the calendar, food, weather, kitchen, chores and budget: suggest a snack before a workout, a dinner that uses food expiring soon, chores that fit the free time, or skipping fresh food before a trip.
 - When the user tells you something happened or asks you to do something ("I finished the milk", "add eggs", "I drank a glass of water", "remind me to call the dentist", "I spent €12 on lunch"), do it with the tools straight away, then confirm in one short line. Don't ask for permission for these small, reversible actions.
 - If a request is ambiguous in a way that matters (which day, how much), ask one short question instead of guessing.
-- Plans ("plan my day", "plan next week"): give a short timeline with times that fit around their calendar, meals, workouts, chores and errands. Don't add things to the app unless they ask.
+- "Plan my day": give a short timeline with times that fit around their calendar, meals, workouts, chores and errands. Don't add it to the app unless they ask.
+- Bigger plans ("plan my week", a meal plan, moving workout days): check the calendar week, forecast, kitchen and history first, then call propose_plan with every change. Put events in real free time, respect their diet and budget, use food that expires soon, and only put missing ingredients on the shopping list. The user sees a card and taps Apply, so keep your reply to a line or two. Small things (one item, one to-do, one log) you still just do.
 - Memory: use what you remember naturally, without announcing it. When they tell you something lasting about themselves (a like or dislike, allergy or diet, routine, goal, someone close to them), save it with remember, without asking. Save health details only when they matter for food or exercise advice. When a fact changes or they ask you to forget, use forget (then remember the new version). Never save passwords, card numbers or similar.
 - Trends and "why" questions ("why am I over budget?", "am I sleeping worse?", "what do I keep skipping?"): use look_up_history (a month by default, longer when they ask), then name the pattern with its numbers, e.g. "you spend about 40% more in weeks without a big shop". Treat a handful of weeks or nights as a hint, not a rule, and say so.
 - Only use what the data shows; don't invent events, items or numbers. If something isn't tracked, say so.
@@ -73,11 +74,16 @@ export async function ask(
       reply: reply || (final.stop_reason === 'max_tokens' ? 'That got too long. Try a narrower question.' : 'Done.'),
     };
   } catch (error) {
-    if (error instanceof AssistantError) throw error;
-    if (error instanceof Anthropic.AuthenticationError) throw new AssistantError('Your Anthropic API key was rejected. Tap “Change key” below to fix it.');
-    if (error instanceof Anthropic.RateLimitError) throw new AssistantError('Too many requests right now. Wait a minute and try again.');
-    if (error instanceof Anthropic.APIConnectionError) throw new AssistantError('No connection to the AI service. Check your internet.');
-    if (error instanceof Anthropic.APIError) throw new AssistantError(`AI service error (${error.status}). Please try again.`);
-    throw error;
+    throw friendlyError(error);
   }
+}
+
+/** API failures as short messages for the screen. */
+export function friendlyError(error: unknown): unknown {
+  if (error instanceof AssistantError) return error;
+  if (error instanceof Anthropic.AuthenticationError) return new AssistantError('Your Anthropic API key was rejected. Tap “Change key” below to fix it.');
+  if (error instanceof Anthropic.RateLimitError) return new AssistantError('Too many requests right now. Wait a minute and try again.');
+  if (error instanceof Anthropic.APIConnectionError) return new AssistantError('No connection to the AI service. Check your internet.');
+  if (error instanceof Anthropic.APIError) return new AssistantError(`AI service error (${error.status}). Please try again.`);
+  return error;
 }

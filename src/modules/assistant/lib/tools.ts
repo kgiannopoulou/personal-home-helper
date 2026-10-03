@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { EXPENSE_CATEGORIES } from '../../money/lib/budget';
 import { HISTORY_MODULES, SECTIONS, type Actions, type HistoryModule } from './catalog';
 import { FACT_KINDS, type FactKind, type MemoryBox } from './memory';
+import { makePlan, PlanInputSchema, type Plan, type PlanInput } from './plan';
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe('YYYY-MM-DD');
 const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).describe('HH:MM, 24-hour');
@@ -12,6 +13,8 @@ const items = z.array(z.string().min(1)).min(1).max(30);
 export interface ActionLog {
   tool: string;
   result: string;
+  /** A proposed plan, shown as a card the user can apply */
+  plan?: Plan;
 }
 
 /**
@@ -134,6 +137,21 @@ export function makeTools(actions: Actions, log: (entry: ActionLog) => void, mem
       description: 'Start the laundry timer; the user gets a notification when it should be done.',
       inputSchema: z.object({ type: z.enum(['whites', 'colours', 'darks', 'mixed']), minutes: z.number().int().min(10).max(300).optional() }),
       run: run('start_laundry', (i: { type: 'whites' | 'colours' | 'darks' | 'mixed'; minutes?: number }) => actions.startLaundry(i.type, i.minutes)),
+    }),
+    betaZodTool({
+      name: 'propose_plan',
+      description:
+        'Propose a bigger plan the user can apply with one tap: a week plan (events in free time for workouts, chores and errands, to-dos), a meal plan (meals on given days, missing ingredients for the shopping list), or new workout days. Nothing changes until they tap Apply on the card, so do not also make these changes with other tools.',
+      inputSchema: PlanInputSchema,
+      run: async (input: PlanInput) => {
+        try {
+          const plan = makePlan(input);
+          log({ tool: 'propose_plan', result: `Proposed “${plan.title}”`, plan });
+          return `Shown to the user as a card with ${plan.changes.length} changes and an Apply button. Nothing has changed yet.`;
+        } catch (e) {
+          return `Error: ${e instanceof Error ? e.message : String(e)}`;
+        }
+      },
     }),
     betaZodTool({
       name: 'remember',

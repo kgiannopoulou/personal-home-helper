@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta/messages';
 import { newId, toDateKey } from '../../../shared/dates';
 import type { Fact } from './memory';
+import type { Plan } from './plan';
+import type { DailyBriefing, WeeklyReview } from './proactive';
 
 export interface Bubble {
   id: string;
@@ -9,6 +11,8 @@ export interface Bubble {
   text: string;
   /** What the assistant changed in the app ("Added Milk to the shopping list.") */
   actions?: string[];
+  /** A plan the assistant proposed, applied only when the user taps Apply */
+  plan?: Plan;
   error?: boolean;
 }
 
@@ -20,6 +24,8 @@ export interface Chat {
   /** What's shown on screen */
   bubbles: Bubble[];
   speak: boolean;
+  /** Things that happened outside the chat (an applied plan), told to the assistant with the next question */
+  notes?: string[];
 }
 
 const KEY = 'assistant:v1';
@@ -57,6 +63,27 @@ export async function saveMemory(facts: Fact[]): Promise<void> {
   await AsyncStorage.setItem(MEMORY_KEY, JSON.stringify(facts));
 }
 
+const PROACTIVE_KEY = 'assistant:proactive:v1';
+
+export interface Proactive {
+  /** The latest daily briefings, newest last (today's, and tomorrow's from the evening before) */
+  briefings: DailyBriefing[];
+  review: WeeklyReview | null;
+}
+
+export async function loadProactive(): Promise<Proactive> {
+  try {
+    const raw = await AsyncStorage.getItem(PROACTIVE_KEY);
+    return raw ? (JSON.parse(raw) as Proactive) : { briefings: [], review: null };
+  } catch {
+    return { briefings: [], review: null };
+  }
+}
+
+export async function saveProactive(p: Proactive): Promise<void> {
+  await AsyncStorage.setItem(PROACTIVE_KEY, JSON.stringify({ ...p, briefings: p.briefings.slice(-3) }));
+}
+
 export const bubble = (role: Bubble['role'], text: string, extra: Partial<Bubble> = {}): Bubble => ({ id: newId(), role, text, ...extra });
 
 /** Starting points that show off what the assistant can connect. */
@@ -66,7 +93,8 @@ export const SUGGESTIONS = [
   'What can I cook tonight?',
   'I have 20 minutes, what should I do?',
   'How is my budget looking?',
-  'Plan next week',
+  'Plan my week',
+  'Make a meal plan for this week',
   'I finished the milk and the eggs',
   'What should I wear today?',
   'What do you remember about me?',

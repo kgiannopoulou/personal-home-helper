@@ -55,7 +55,7 @@ describe('assistant loop', () => {
     const first = requests[0];
     expect(first.body).toMatchObject({ model: 'claude-opus-5-5', output_config: { effort: 'medium' }, cache_control: { type: 'ephemeral' }, fallbacks: 'default', system: SYSTEM });
     expect(first.headers['anthropic-beta']).toContain('server-side-fallback-2026-07-01');
-    expect(first.body.tools).toHaveLength(16);
+    expect(first.body.tools).toHaveLength(17);
     expect(first.body.messages).toEqual([{ role: 'user', content: '<today>\nNow: Thursday 15 October 2026, 15:00\n</today>\n\nI finished the milk' }]);
 
     // The second request carries the tool result back.

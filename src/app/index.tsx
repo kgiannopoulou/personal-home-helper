@@ -1,6 +1,8 @@
 import { useRouter, type Href } from 'expo-router';
 import type { ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
+import { PlanCard } from '../modules/assistant/components/PlanCard';
+import { useProactive } from '../modules/assistant/lib/useProactive';
 import { weatherLabel } from '../modules/weather/lib/weather';
 import { time } from '../modules/planner/lib/planner';
 import { useHub } from '../shared/useHub';
@@ -40,6 +42,8 @@ function Grid({ children }: { children: ReactNode }) {
 export default function Hub() {
   const hub = useHub();
   const router = useRouter();
+  const proactive = useProactive();
+  const { briefing, review } = proactive;
   const { now, tips, food, activity, kitchen, shopping, money, chores, planner, weather } = hub;
   const hour = now.getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
@@ -56,6 +60,44 @@ export default function Hub() {
           {cur && weather.forecast ? ` · ${cur.emoji} ${Math.round(weather.forecast.current.temp)}°` : ''}
         </Muted>
       </View>
+
+      {(briefing || proactive.working === 'briefing' || proactive.error) && (
+        <Card style={{ backgroundColor: colors.primarySoft, borderColor: colors.primarySoft }}>
+          <View style={[styles.progressHeader, { alignItems: 'center' }]}>
+            <Title>{briefing && briefing.date > hub.planner.date ? '🌙 For tomorrow' : '✨ Your nudges today'}</Title>
+            {!!briefing && !proactive.working && (
+              <Pressable accessibilityRole="button" accessibilityLabel="Write new nudges" onPress={proactive.refreshBriefing} hitSlop={8}>
+                <Text style={{ color: colors.primary }}>↻</Text>
+              </Pressable>
+            )}
+          </View>
+          {proactive.working === 'briefing' && <Muted>Looking at your day and the last few weeks…</Muted>}
+          {!briefing && proactive.error && proactive.working !== 'briefing' && <Muted>{proactive.error}</Muted>}
+          {briefing?.nudges.map((n, i) => (
+            <Pressable key={i} accessibilityRole="button" onPress={() => router.push(`/${n.module}` as Href)} style={{ flexDirection: 'row', gap: 8, paddingVertical: 6 }}>
+              <Text style={{ fontSize: 18 }}>{n.emoji}</Text>
+              <Text style={[styles.text, { flex: 1 }]}>{n.text}</Text>
+            </Pressable>
+          ))}
+        </Card>
+      )}
+
+      {(review || proactive.working === 'review') && (
+        <Card>
+          <Title>📋 Your week in review</Title>
+          {!review ? (
+            <Muted>Writing your weekly review and a plan for next week…</Muted>
+          ) : (
+            <>
+              <Text style={styles.label}>{review.headline}</Text>
+              <Text style={styles.text}>💶 {review.budget}</Text>
+              <Text style={styles.text}>🥗 {review.nutrition}</Text>
+              <Text style={styles.text}>🧹 {review.chores}</Text>
+            </>
+          )}
+        </Card>
+      )}
+      {review?.plan && <PlanCard plan={review.plan} onApply={proactive.applyReviewPlan} />}
 
       <Card style={{ backgroundColor: colors.primarySoft, borderColor: colors.primarySoft }}>
         <Title>🧠 Today, joined up</Title>
