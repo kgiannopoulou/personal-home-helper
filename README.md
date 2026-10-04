@@ -2,6 +2,12 @@
 
 **Personal Home Helper, all in one app.** Food, activity, kitchen, shopping, money, chores, planning, weather and quick actions now share one home screen, and they know about each other. On top sits **🧠 the AI Hub**: an assistant that sees your whole day and can act in every part of the app.
 
+**🔄 Shared with your household** through [home-helper-api](https://github.com/kgiannopoulou/home-helper-api), the Laravel + MySQL server: the shopping list, kitchen, money, chores and planner sync between phones, and with a web dashboard. **🔔 Push from the server** arrives with the app closed: the shopping list is filled the evening before shopping day, with budget alerts and a Sunday summary. [More below](#-sync-with-your-household).
+
+![Adding yoghurt on the phone and seeing it on the web dashboard](https://raw.githubusercontent.com/kgiannopoulou/home-helper-api/main/docs/demo/phone-to-web.gif)
+
+*This app (its web build, left) and the server's web dashboard (right): yoghurt added on the phone shows up on the web 16 seconds later.*
+
 The home screen shows **today across everything**, plus tips that no single part could give on its own:
 
 > 🍌 *Gym at 17:30: have a light carb snack around 16:00 (a banana or toast) for energy.*

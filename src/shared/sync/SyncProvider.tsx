@@ -23,6 +23,8 @@ import type { Ledger, ModuleStates } from './types';
 
 /** Wait this long after a change, so a burst of taps is one sync */
 const AFTER_CHANGE_MS = 4000;
+/** Taps on pushes; the web build has no notifications, so there's never one */
+const useLastTap = Platform.OS === 'web' ? () => null : Notifications.useLastNotificationResponse;
 /** Try again this long after the server couldn't be reached */
 const RETRY_MS = 60000;
 
@@ -204,7 +206,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   }, [active, userId, client]);
 
   // Tapping a push opens the screen it's about, also when it started the app (once the navigator is up)
-  const lastTap = Notifications.useLastNotificationResponse();
+  const lastTap = useLastTap();
   const navReady = !!useRootNavigationState()?.key;
   useEffect(() => {
     const route = navReady ? pushRoute(lastTap?.notification.request.content.data) : null;

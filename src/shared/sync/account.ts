@@ -4,6 +4,7 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import type { Ledger } from './types';
 
 export interface Account {
@@ -33,8 +34,17 @@ export async function saveAccount(account: Account | null): Promise<void> {
   else await AsyncStorage.removeItem(ACCOUNT_KEY);
 }
 
-export const getToken = () => SecureStore.getItemAsync(TOKEN_KEY);
+// Phones keep the token in the Keychain / Keystore. SecureStore has no web version, so the
+// web build (used for development and the README demo) keeps it in the browser's storage.
+const web = Platform.OS === 'web';
+
+export const getToken = () => (web ? AsyncStorage.getItem(TOKEN_KEY) : SecureStore.getItemAsync(TOKEN_KEY));
 export async function setToken(token: string | null): Promise<void> {
+  if (web) {
+    if (token) await AsyncStorage.setItem(TOKEN_KEY, token);
+    else await AsyncStorage.removeItem(TOKEN_KEY);
+    return;
+  }
   if (token) await SecureStore.setItemAsync(TOKEN_KEY, token);
   else await SecureStore.deleteItemAsync(TOKEN_KEY);
 }
