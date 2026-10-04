@@ -42,7 +42,7 @@ Chat with an assistant (Claude) that sees today across every module and can upda
 
 ## 🔄 Sync with your household
 
-Sign in to your [Home Helper server](https://github.com/kgiannopoulou/home-helper-api) (⚙️ on the home screen → **Account & sync**), and the people you live with share one shopping list, kitchen, money, chores and planner. Add milk on one phone, and it's on the other after the next sync. Food, water, sleep, workouts and weight stay yours: they only sync to your own other phones.
+Sign in to your [Home Helper server](https://github.com/kgiannopoulou/home-helper-api) (⚙️ on the home screen → **Account & sync**), and the people you live with share one shopping list, kitchen, money, chores and planner. Add milk on one phone, and it's on the other after the next sync. Food, water, sleep, steps, workouts and weight stay yours: they only sync to your own other phones. The same account also opens the [web dashboard](https://github.com/kgiannopoulou/home-helper-api#web-dashboard), with charts of spending, health and chores and a week planner.
 
 - **Offline first.** The phone's own storage is still the copy you use; sync swaps changes in the background. It runs when the app opens, when you come back to it, and 4 seconds after a change, and tries again a minute later when there's no connection.
 - **Household** (Settings → Household): see the members, invite someone by email (owner), paste an invite link to join, switch household, or start a new one. Once you're signed in, the household's people are the chore members, so fair share and "who did it" are real people.
@@ -55,7 +55,7 @@ How it works (`src/shared/sync`):
 | File | What it does |
 |---|---|
 | `engine.ts` | The rules, as pure functions: **observe** (notice changed, new and deleted records), **pending** (what to send), **acknowledge**, **mergeModule** (last write wins, renames, tombstones), and `syncOnce`, one round trip |
-| `collections.ts` | The 17 mappings between each module's records and the server's rows. Phone-only fields (a kitchen item's price, whether you've seen a learned chore change) never trigger a sync and survive one |
+| `collections.ts` | The 18 mappings between each module's records and the server's rows. Phone-only fields (a kitchen item's price, whether you've seen a learned chore change) never trigger a sync and survive one. Steps, kept per day without ids, get an id made from you and the day (`stepsId()`, the same as the server's), and only finished days sync |
 | `SyncProvider.tsx` | Connects the engine to the module stores (each store has an `applySync`), storage, the app state and the timers |
 | `account.ts`, `api.ts` | The token (secure storage), account and sync state, and the server calls |
 | `push.ts`, `pushRoute.ts` | This phone's Expo push token (registered with the server after sign-in), and which screen a tapped push opens |
@@ -137,7 +137,7 @@ Each module keeps its own storage key, so data is organised exactly as in the se
 ```bash
 npm install
 npx expo start        # scan the QR code with Expo Go, or press w for web
-npm test              # 236 tests across all modules, the assistant and sync
+npm test              # 239 tests across all modules, the assistant and sync
 npm run typecheck
 ```
 

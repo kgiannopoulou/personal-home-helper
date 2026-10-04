@@ -38,7 +38,7 @@ const time = (iso: string) => Date.parse(iso);
 export function observe<M extends ModuleName>(ledger: Ledger, module: M, state: ModuleStates[M], ctx: SyncContext, now: string): Ledger {
   let next = ledger;
   for (const c of collectionsOf(module)) {
-    const records = c.get(state) as AnyRecord[];
+    const records = c.get(state, ctx) as AnyRecord[];
     const entries: Record<string, LedgerEntry> = { ...(ledger[c.name] ?? {}) };
     let changed = false;
     const here = new Set<string>();
@@ -79,7 +79,7 @@ export function pending(ledger: Ledger, states: ModuleStates, ctx: SyncContext):
     const entries = ledger[c.name] ?? {};
     const dirty = Object.entries(entries).filter(([, e]) => e.dirty);
     if (!dirty.length) continue;
-    const byId = new Map((c.get(states[c.module] as never) as AnyRecord[]).map((r) => [r.id, r]));
+    const byId = new Map((c.get(states[c.module] as never, ctx) as AnyRecord[]).map((r) => [r.id, r]));
     const rows: Row[] = [];
     for (const [id, e] of dirty) {
       if (e.deleted) {
@@ -135,7 +135,7 @@ export function mergeModule<M extends ModuleName>(
   for (const c of collections) {
     const renames = response.remapped[c.name];
     if (!renames || !Object.keys(renames).length) continue;
-    const records = c.get(s) as AnyRecord[];
+    const records = c.get(s, ctx) as AnyRecord[];
     const taken = new Set(records.map((r) => r.id));
     s = c.set(s as never, records.flatMap((r) => (renames[r.id] ? (taken.has(renames[r.id]) ? [] : [{ ...r, id: renames[r.id] }]) : [r])) as never) as ModuleStates[M];
     const entries = { ...(l[c.name] ?? {}) };
@@ -149,7 +149,7 @@ export function mergeModule<M extends ModuleName>(
       const fields = Object.entries(d.references ?? {}).filter(([, target]) => target === c.name).map(([f]) => f);
       if (!fields.length) continue;
       const dEntries = { ...(l[d.name] ?? {}) };
-      const updated = (d.get(s) as AnyRecord[]).map((r) => {
+      const updated = (d.get(s, ctx) as AnyRecord[]).map((r) => {
         const renamed = fields.filter((f) => typeof r[f] === 'string' && renames[r[f] as string]);
         if (!renamed.length) return r;
         const copy = { ...r, ...Object.fromEntries(renamed.map((f) => [f, renames[r[f] as string]])) };
@@ -166,7 +166,7 @@ export function mergeModule<M extends ModuleName>(
   for (const c of collections) {
     const rows = response.changes[c.name];
     if (!rows?.length) continue;
-    const records = new Map((c.get(s) as AnyRecord[]).map((r) => [r.id, r]));
+    const records = new Map((c.get(s, ctx) as AnyRecord[]).map((r) => [r.id, r]));
     const entries = { ...(l[c.name] ?? {}) };
     let changed = false;
 

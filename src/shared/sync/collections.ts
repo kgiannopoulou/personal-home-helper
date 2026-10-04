@@ -14,6 +14,7 @@ import type { InventoryItem } from '../../modules/kitchen/lib/types';
 import type { Expense, Recurring } from '../../modules/money/lib/types';
 import type { AdminItem, CalEvent, Todo } from '../../modules/planner/lib/types';
 import type { ListItem, Trip } from '../../modules/shopping/lib/types';
+import { toDateKey } from '../dates';
 import type { ModuleName, ModuleStates, Row, SyncContext } from './types';
 
 type Fields = Record<string, unknown>;
@@ -22,7 +23,8 @@ export interface Collection<M extends ModuleName = ModuleName, R extends { id: s
   /** The server's name */
   name: string;
   module: M;
-  get: (s: ModuleStates[M]) => R[];
+  /** ctx is there for records made from something without ids (steps per day) */
+  get: (s: ModuleStates[M], ctx: SyncContext) => R[];
   set: (s: ModuleStates[M], records: R[]) => ModuleStates[M];
   toRow: (r: R, ctx: SyncContext) => Fields;
   fromRow: (row: Row, existing: R | undefined, ctx: SyncContext) => R;
@@ -48,6 +50,30 @@ export function sleepToTimes(e: Pick<SleepEntry, 'date' | 'bedtime' | 'wake'>): 
   if (bed >= woke) bed.setDate(bed.getDate() - 1);
   return { bed_at: bed.toISOString(), woke_at: woke.toISOString() };
 }
+
+/** A day's steps as a record: the phone keeps steps as `{ "2026-10-04": 8123 }`, without ids. */
+export interface StepDay {
+  id: string;
+  date: string;
+  steps: number;
+}
+
+const CROCKFORD = '0123456789abcdefghjkmnpqrstvwxyz';
+const base32 = (n: number, length: number) => {
+  let out = '';
+  for (let i = 0; i < length; i++) {
+    out = CROCKFORD[n % 32] + out;
+    n = Math.floor(n / 32);
+  }
+  return out;
+};
+
+/**
+ * The id of one person's steps on one day, the same as StepCount::idFor() on the server: a ULID
+ * whose time is midnight UTC of the day and whose "random" part is the user id. Every phone of
+ * that person makes the same id for the same day, so a day is never stored twice.
+ */
+export const stepsId = (userId: number, date: string) => base32(Date.parse(`${date}T00:00:00Z`), 10) + base32(userId, 16);
 
 const hhmm = (iso: string) => {
   const d = new Date(iso);
@@ -274,6 +300,21 @@ export const COLLECTIONS: Collection[] = [
       const wake = hhmm(String(row.woke_at));
       return { id: row.id, date: String(row.date), bedtime, wake, hours: sleepHours(bedtime, wake), quality: Number(row.quality) };
     },
+  }),
+  define<'activity', StepDay>({
+    name: 'step_counts',
+    module: 'activity',
+    // Only finished days: today's count changes with every few steps and would sync all day long
+    get: (s, ctx) =>
+      Object.entries(s.steps)
+        .filter(([date, steps]) => date < toDateKey() && steps > 0)
+        .map(([date, steps]) => ({ id: stepsId(ctx.userId, date), date, steps: Math.round(steps) })),
+    set: (s, days) => {
+      const today = Object.entries(s.steps).filter(([date]) => date >= toDateKey());
+      return { ...s, steps: Object.fromEntries([...days.map((d) => [d.date, d.steps] as const), ...today]) };
+    },
+    toRow: (d) => ({ date: d.date, steps: d.steps }),
+    fromRow: (row) => ({ id: row.id, date: String(row.date), steps: Number(row.steps) }),
   }),
   define<'activity', WeightEntry>({
     name: 'weights',

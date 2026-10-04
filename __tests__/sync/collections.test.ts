@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { newId } from '../../src/shared/dates';
-import { COLLECTION_BY_NAME, sleepToTimes } from '../../src/shared/sync/collections';
+import { newId, toDateKey } from '../../src/shared/dates';
+import { COLLECTION_BY_NAME, sleepToTimes, stepsId } from '../../src/shared/sync/collections';
 import type { Row } from '../../src/shared/sync/types';
 
 const ctx = { userId: 7 };
@@ -28,6 +28,7 @@ describe('each record survives the trip to the server and back', () => {
     ['workouts', { id: 'o', date: '2026-10-02', type: 'run', minutes: 30, intensity: 'moderate', kcal: 270, source: 'coach', notes: undefined }],
     ['sleep_entries', { id: 'z', date: '2026-10-03', bedtime: '23:15', wake: '07:00', hours: 7.8, quality: 4 }],
     ['weights', { id: 'g', date: '2026-10-03', kg: 70.4 }],
+    ['step_counts', { id: stepsId(7, '2026-10-03'), date: '2026-10-03', steps: 8123 }],
     ['events', { id: 'v', title: 'Dentist', start: '2026-10-06T07:30:00.000Z', end: '2026-10-06T08:15:00.000Z', allDay: false, location: 'Kypseli', source: 'manual' }],
     ['todos', { id: 'x', title: 'Call the plumber', due: '2026-10-04', minutes: 10, done: undefined, createdAt: '2026-10-01T09:00:00.000Z' }],
     ['admin_items', { id: 'a', title: 'Car insurance', kind: 'renewal', due: '2026-11-01', repeatMonths: 12, remindDays: 14, amount: 310, done: undefined, history: ['2025-11-01T09:00:00.000Z'] }],
@@ -37,6 +38,22 @@ describe('each record survives the trip to the server and back', () => {
 });
 
 describe('details', () => {
+  test('a day of steps has the same id on every phone of that person, and on the server', () => {
+    // StepCount::idFor(7, '2026-10-04') in home-helper-api
+    expect(stepsId(7, '2026-10-04')).toBe('01m423bp000000000000000007');
+    expect(stepsId(8, '2026-10-04')).not.toBe(stepsId(7, '2026-10-04'));
+  });
+
+  test('steps sync once the day is over, and today stays as it is', () => {
+    const c = COLLECTION_BY_NAME.step_counts;
+    const today = toDateKey();
+    const state = { steps: { '2026-10-01': 9000, '2026-10-02': 0, [today]: 1200 } } as never;
+    const days = c.get(state, ctx);
+    expect(days).toEqual([{ id: stepsId(7, '2026-10-01'), date: '2026-10-01', steps: 9000 }]);
+    const merged = c.set(state, [...days, { id: stepsId(7, '2026-09-30'), date: '2026-09-30', steps: 4000 }] as never) as unknown as { steps: Record<string, number> };
+    expect(merged.steps).toEqual({ '2026-10-01': 9000, '2026-09-30': 4000, [today]: 1200 });
+  });
+
   test('a night\'s sleep crosses midnight', () => {
     const { bed_at, woke_at } = sleepToTimes({ date: '2026-10-03', bedtime: '23:15', wake: '07:00' });
     expect((Date.parse(woke_at) - Date.parse(bed_at)) / 3600000).toBe(7.75);
