@@ -3,6 +3,8 @@
  * server on start, when the app comes back to the foreground, and a few seconds after a change.
  * The rules live in engine.ts; this file only connects them to the stores, storage and the server.
  */
+import * as Notifications from 'expo-notifications';
+import { useRootNavigationState, useRouter, type Href } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AppState, Platform } from 'react-native';
 import { useStore as useActivity } from '../../modules/activity/lib/store';
@@ -15,6 +17,8 @@ import { useStore as useShopping } from '../../modules/shopping/lib/store';
 import { clearSyncState, getToken, loadAccount, loadSyncState, saveAccount, saveSyncState, setToken, type Account } from './account';
 import { api, ApiError, normalizeServerUrl, type HouseholdInfo, type MemberInfo } from './api';
 import { MODULES, observe, syncOnce, withHouseholdMembers, type SyncIO } from './engine';
+import { expoPushToken, type PushState } from './push';
+import { pushRoute } from './pushRoute';
 import type { Ledger, ModuleStates } from './types';
 
 /** Wait this long after a change, so a burst of taps is one sync */
@@ -34,6 +38,8 @@ interface SyncValue {
   account: Account | null;
   loaded: boolean;
   status: SyncStatus;
+  /** Whether the server's jobs can reach this phone; null until checked */
+  push: PushState | null;
   signIn: (serverUrl: string, email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   households: () => Promise<HouseholdInfo[]>;
@@ -64,6 +70,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const [account, setAccount] = useState<Account | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<SyncStatus>({ syncing: false, refused: 0 });
+  const [push, setPush] = useState<PushState | null>(null);
+  const router = useRouter();
   const token = useRef<string | null>(null);
   const ledger = useRef<Ledger>({});
   const since = useRef<string | null>(null);
@@ -183,6 +191,26 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     if (active) loadMembers().catch(() => {});
   }, [active, loadMembers]);
 
+  // Once signed in to a household, give the server this phone's push token (again on every start,
+  // so a new token or a new login is picked up). Logging out deletes it on the server.
+  const userId = account?.user.id;
+  useEffect(() => {
+    if (!active) return;
+    (async () => {
+      const state = await expoPushToken();
+      if (state.on) await client().registerDevice({ token: state.token, platform: Platform.OS === 'ios' ? 'ios' : 'android', name: `${Platform.OS} phone` });
+      setPush(state);
+    })().catch((e) => setPush({ on: false, reason: e instanceof ApiError ? e.message : 'Could not turn on notifications from the server.' }));
+  }, [active, userId, client]);
+
+  // Tapping a push opens the screen it's about, also when it started the app (once the navigator is up)
+  const lastTap = Notifications.useLastNotificationResponse();
+  const navReady = !!useRootNavigationState()?.key;
+  useEffect(() => {
+    const route = navReady ? pushRoute(lastTap?.notification.request.content.data) : null;
+    if (route) router.push(route as Href);
+  }, [lastTap, navReady, router]);
+
   const switchHousehold = useCallback(async (h: HouseholdInfo) => {
     const a = accountRef.current!;
     if (a.household?.id !== h.id) {
@@ -201,6 +229,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       account,
       loaded,
       status,
+      push,
       signIn: async (serverUrl, email, password) => {
         const url = normalizeServerUrl(serverUrl);
         const { token: t, user } = await api(url, null).login(email.trim(), password, `${Platform.OS} phone`);
@@ -224,6 +253,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         await setToken(null);
         token.current = null;
         setAccount(null);
+        setPush(null);
         setStatus({ syncing: false, refused: 0 });
       },
       households: () => client().households(),
@@ -236,7 +266,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       join: async (link) => switchHousehold(await client().acceptInvite(link)),
       syncNow: () => schedule(0),
     }),
-    [account, loaded, status, client, switchHousehold, loadMembers, schedule],
+    [account, loaded, status, push, client, switchHousehold, loadMembers, schedule],
   );
 
   return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>;

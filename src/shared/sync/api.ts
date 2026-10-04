@@ -78,6 +78,8 @@ export function api(serverUrl: string, token: string | null) {
       if (!url.startsWith(`${serverUrl}/api/invites/`)) throw new ApiError(0, `That isn't an invite link from ${serverUrl}.`);
       return (await call<{ data: HouseholdInfo }>(url, { method: 'POST', token })).data;
     },
+    /** This phone's Expo push token, so the server's jobs can reach it. Logging out removes it. */
+    registerDevice: (body: { token: string; platform: 'ios' | 'android'; name?: string }) => call<unknown>(u('/devices'), { method: 'POST', token, body }),
     sync: (householdId: string, request: SyncRequest) => call<SyncResponse>(u(`/households/${householdId}/sync`), { method: 'POST', token, body: request }),
   };
 }

@@ -10,6 +10,7 @@ import { useStore as useShopping } from '../modules/shopping/lib/store';
 import { toDateKey } from './dates';
 import { cancelScheduled, notificationId } from './notify';
 import { itemsForShoppingDay, learnFrequency, shoppingDates, usualShoppingDay } from './predictions';
+import { useSync } from './sync/SyncProvider';
 
 const PREPARED_KEY = 'predictions:shopping:v1';
 const CHORES_KEY = 'predictions:chores:v1';
@@ -30,13 +31,19 @@ export const usePrepared = () => useContext(Context);
  * - the day before your usual shopping day, fills the list with what's low or will run out before the next shop;
  * - once a day, nudges chore frequencies you keep skipping or doing early;
  * - a reminder the evening before shopping day.
+ *
+ * In a household that syncs with a server, the server's scheduled jobs do the first two (and push
+ * instead of the reminder), even when no phone has the app open. Doing them here too would put
+ * the same milk on the list twice, from two phones, so the phone leaves them to the server.
  */
 export function PredictionsRunner({ children }: { children: ReactNode }) {
   const kitchen = useKitchen();
   const shopping = useShopping();
   const chores = useChores();
   const money = useMoney();
-  const ready = kitchen.ready && shopping.ready && chores.ready && money.ready;
+  const { account } = useSync();
+  const serverRuns = !!account?.household;
+  const ready = kitchen.ready && shopping.ready && chores.ready && money.ready && !serverRuns;
   const [prepared, setPrepared] = useState<Prepared | null>(null);
   const [today, setToday] = useState(toDateKey());
   const latest = useRef({ kitchen, shopping, chores, money });
@@ -73,10 +80,12 @@ export function PredictionsRunner({ children }: { children: ReactNode }) {
     // Runs once per day and shopping day; the stores are read through `latest`.
   }, [ready, today, day?.next]);
 
-  // A reminder at 18:00 the evening before your usual shopping day.
+  // A reminder at 18:00 the evening before your usual shopping day (the server's push replaces it).
   useEffect(() => {
-    if (Platform.OS === 'web' || weekday === null) return;
+    if (Platform.OS === 'web') return;
     (async () => {
+      if (serverRuns) return cancelScheduled('predict-');
+      if (weekday === null) return;
       const { granted } = await Notifications.getPermissionsAsync();
       if (!granted) return;
       await cancelScheduled('predict-');
@@ -87,7 +96,7 @@ export function PredictionsRunner({ children }: { children: ReactNode }) {
         trigger: { type: Notifications.SchedulableTriggerInputTypes.WEEKLY, weekday: ((weekday + 6) % 7) + 1, hour: 18, minute: 0 },
       });
     })().catch((e) => console.warn('Could not schedule the shopping reminder', e));
-  }, [weekday]);
+  }, [weekday, serverRuns]);
 
   // Chore frequencies that follow your habits, checked once a day.
   useEffect(() => {

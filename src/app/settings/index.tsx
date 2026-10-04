@@ -52,7 +52,7 @@ function since(iso?: string): string {
 }
 
 export default function AccountScreen() {
-  const { account, loaded, status, syncNow, signOut } = useSync();
+  const { account, loaded, status, push, syncNow, signOut } = useSync();
   const router = useRouter();
 
   if (!loaded) return <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} />;
@@ -94,6 +94,24 @@ export default function AccountScreen() {
               <Muted>Changes sync a few seconds after you make them, when the app opens, and when you come back to it.</Muted>
               <View style={{ height: 10 }} />
               <Button label="Sync now" variant="secondary" onPress={syncNow} disabled={status.syncing} />
+            </Card>
+          )}
+
+          {account.household && push && (
+            <Card>
+              <Title>🔔 From the server</Title>
+              {push.on ? (
+                <Muted>
+                  On. Even with the app closed, the server fills the shopping list the evening before shopping day, adds bills on their day, warns you
+                  when the month is heading over budget and sends a summary on Sunday evening.
+                </Muted>
+              ) : (
+                <>
+                  <Text style={styles.text}>Off on this phone.</Text>
+                  <Muted>{push.reason}</Muted>
+                  <Muted>The server still does its jobs; you see the results when the app syncs.</Muted>
+                </>
+              )}
             </Card>
           )}
 

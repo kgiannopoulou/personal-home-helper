@@ -47,6 +47,8 @@ Sign in to your [Home Helper server](https://github.com/kgiannopoulou/home-helpe
 - **Offline first.** The phone's own storage is still the copy you use; sync swaps changes in the background. It runs when the app opens, when you come back to it, and 4 seconds after a change, and tries again a minute later when there's no connection.
 - **Household** (Settings → Household): see the members, invite someone by email (owner), paste an invite link to join, switch household, or start a new one. Once you're signed in, the household's people are the chore members, so fair share and "who did it" are real people.
 - **Last write wins.** Each record carries the time it was last changed; the server keeps the newer one, and an older change never overwrites a newer one. Deleting something sends a tombstone, so it's deleted on the other phones too.
+- **The server does the scheduled work, with the app closed.** It fills the shopping list the evening before shopping day, adds bills on their day, learns chore frequencies, warns when the month is heading over budget, and sends a Sunday summary, as push notifications (and an email for the summary). Tapping one opens that screen. While you're in a household, the phone stops filling the list and changing chore frequencies itself, so two phones never add the same milk twice.
+- **Push needs a development build** (`npx expo run:android`), not Expo Go, and an EAS project id (`npx eas init` adds `extra.eas.projectId` to app.json). Settings → Account & sync shows whether the server can reach this phone and, if not, why. Signing out stops the pushes.
 
 How it works (`src/shared/sync`):
 
@@ -56,6 +58,7 @@ How it works (`src/shared/sync`):
 | `collections.ts` | The 17 mappings between each module's records and the server's rows. Phone-only fields (a kitchen item's price, whether you've seen a learned chore change) never trigger a sync and survive one |
 | `SyncProvider.tsx` | Connects the engine to the module stores (each store has an `applySync`), storage, the app state and the timers |
 | `account.ts`, `api.ts` | The token (secure storage), account and sync state, and the server calls |
+| `push.ts`, `pushRoute.ts` | This phone's Expo push token (registered with the server after sign-in), and which screen a tapped push opens |
 
 **The ledger instead of changing every record.** The modules keep their records exactly as before. A ledger beside them keeps, per record, a hash of what the server sees, `updatedAt`, a `dirty` flag and tombstones. Every change in a store is compared with it as it happens. A changed hash gets a new `updatedAt`; a record that's gone becomes a tombstone. That way, none of the screens and rules reading the stores had to learn about deleted records. Chore completions, which the module trims to the last 1,000, are told apart from real deletions: a completion missing because it's older than all the rest was trimmed, so it's not deleted on the server.
 
@@ -134,7 +137,7 @@ Each module keeps its own storage key, so data is organised exactly as in the se
 ```bash
 npm install
 npx expo start        # scan the QR code with Expo Go, or press w for web
-npm test              # 234 tests across all modules, the assistant and sync
+npm test              # 236 tests across all modules, the assistant and sync
 npm run typecheck
 ```
 
@@ -151,5 +154,6 @@ On first start the app asks for the permissions its parts need: notifications, m
 - [x] 🔮 **Predictions**: shopping day, budget forecast, chore frequencies that learn
 - [ ] Hands-free voice (speech recognition in a development build)
 - [x] 🔄 **Shared household sync** between phones ([home-helper-api](https://github.com/kgiannopoulou/home-helper-api))
+- [x] 🔔 **Push from the server**: shopping list, bills, budget alerts and a weekly summary with the app closed
 - [ ] Watch app syncing with this app
 - [ ] Route-aware shopping (*"there's a Lidl on your way home from the gym"*)
